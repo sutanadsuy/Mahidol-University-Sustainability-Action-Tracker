@@ -1,0 +1,456 @@
+<script>
+  let isEditingMasterItem = false;
+  let isEditingDeptItem = false;
+  let adminDocsCache = [];
+
+  function calcAutoWeight() {
+    const bgt = getCleanNumber(document.getElementById('adminNewBudget').value);
+    const total = Number(masterData.totalMasterBudget) || 0;
+    if (total > 0 && bgt > 0) {
+      document.getElementById('adminNewWeight').value = ((bgt / total) * 100).toFixed(2);
+    } else {
+      document.getElementById('adminNewWeight').value = 0;
+    }
+  }
+
+  function calcTotalWeights() {
+    const d = Number(document.getElementById('wDraft').value) || 0;
+    const a = Number(document.getElementById('wAppr').value) || 0;
+    const e = Number(document.getElementById('wExec').value) || 0;
+    const dis = Number(document.getElementById('wDisb').value) || 0;
+    const r = Number(document.getElementById('wRepo').value) || 0;
+    const total = d + a + e + dis + r;
+
+    const badge = document.getElementById('totalWeightsBadge');
+    const btn = document.getElementById('btnSaveWeights');
+    badge.innerText = total + '%';
+    if (total === 100) {
+      badge.className = 'badge bg-success fs-6';
+      btn.disabled = false;
+    } else {
+      badge.className = 'badge bg-danger fs-6';
+      btn.disabled = true;
+    }
+  }
+
+  function handleWeightsSubmit(e) {
+    e.preventDefault();
+    const payload = {
+      draft: document.getElementById('wDraft').value,
+      approval: document.getElementById('wAppr').value,
+      execute: document.getElementById('wExec').value,
+      disburse: document.getElementById('wDisb').value,
+      report: document.getElementById('wRepo').value
+    };
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, confirmButtonColor: '#0d6efd' });
+      loadDashboard();
+    }).updateStepWeights(payload);
+  }
+
+  // เรนเดอร์ตารางรายชื่อหน่วยงานในกล่องด้านซ้าย
+  function renderDeptTable(deptList) {
+    const tbody = document.getElementById('adminDeptTableBody');
+    if (!tbody) return;
+
+    if (!deptList || deptList.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-2">ยังไม่มีข้อมูลหน่วยงาน</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = deptList.map(d => `
+      <tr>
+        <td>
+          <a href="javascript:void(0)" class="clickable-project text-dark fw-bold d-block text-truncate" style="max-width: 130px;" onclick="populateEditDept('${d.name}')" title="คลิกเพื่อแก้ไขข้อมูลหน่วยงาน">
+            ${d.name}
+          </a>
+        </td>
+        <td>
+          <div class="text-truncate fw-bold" style="max-width: 110px;" title="${d.headName}">${d.headName}</div>
+          <small class="text-muted text-truncate d-block" style="font-size: 0.68rem;" title="${d.headEmail}">${d.headEmail}</small>
+        </td>
+        <td class="text-center">
+          <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" onclick="populateEditDept('${d.name}')" title="แก้ไขหน่วยงาน">
+            <i class="bi bi-pencil-square"></i>
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ดึงข้อมูลหน่วยงานขึ้นฟอร์มเพื่อแก้ไข
+  function populateEditDept(deptName) {
+    const found = (masterData.departments || []).find(d => d.name === deptName);
+    if (!found) return;
+
+    isEditingDeptItem = true;
+    document.getElementById('deptEditId').value = found.id || '';
+    document.getElementById('deptName').value = found.name;
+    document.getElementById('deptHeadName').value = found.headName;
+    document.getElementById('deptHeadEmail').value = found.headEmail;
+
+    const header = document.getElementById('deptFormHeader');
+    header.innerHTML = `<span class="text-warning text-dark"><i class="bi bi-pencil-square me-1"></i> แก้ไข: ${found.name}</span>`;
+
+    const btn = document.getElementById('btnSaveDept');
+    btn.className = 'btn btn-warning w-100 fw-bold';
+    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> อัปเดตหน่วยงาน';
+
+    const cancelBtn = document.getElementById('deptCancelEditBtn');
+    if (cancelBtn) cancelBtn.classList.remove('d-none');
+  }
+
+  // รีเซ็ตฟอร์มหน่วยงาน
+  function resetDeptForm() {
+    isEditingDeptItem = false;
+    document.getElementById('deptForm').reset();
+    document.getElementById('deptEditId').value = '';
+
+    const header = document.getElementById('deptFormHeader');
+    header.innerHTML = '🏢 เพิ่มข้อมูลหน่วยงาน';
+
+    const btn = document.getElementById('btnSaveDept');
+    btn.className = 'btn btn-primary w-100 fw-bold';
+    btn.innerHTML = '<i class="bi bi-building-add me-1"></i> บันทึกหน่วยงาน';
+
+    const cancelBtn = document.getElementById('deptCancelEditBtn');
+    if (cancelBtn) cancelBtn.classList.add('d-none');
+  }
+
+  function handleDeptSubmit(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveDept');
+    btn.disabled = true;
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>กำลังบันทึก...';
+
+    const payload = {
+      deptId: document.getElementById('deptEditId').value,
+      deptName: document.getElementById('deptName').value.trim(),
+      headName: document.getElementById('deptHeadName').value.trim(),
+      headEmail: document.getElementById('deptHeadEmail').value.trim()
+    };
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+        Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, confirmButtonColor: '#0d6efd' });
+        resetDeptForm();
+        loadMasterAndDashboard();
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message, confirmButtonColor: '#dc3545' });
+      })
+      .addDepartment(payload);
+  }
+
+  function saveBudgetSetting() {
+    const y = document.getElementById('adminBudgetYear').value;
+    const b = getCleanNumber(document.getElementById('adminMasterBudgetVal').value);
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, confirmButtonColor: '#0d6efd' });
+      loadMasterAndDashboard();
+    }).setMasterBudget(y, b);
+  }
+
+  function populateEditProject(projectId) {
+    const p = (masterData.projects || []).find(item => item.id === projectId);
+    if (!p) return;
+
+    isEditingMasterItem = true;
+
+    document.getElementById('adminNewId').value = p.id;
+    document.getElementById('adminNewId').readOnly = true;
+    document.getElementById('adminNewFiscalYear').value = p.fiscalYear;
+    document.getElementById('adminNewFiscalYear').readOnly = true;
+    document.getElementById('adminNewDeptSelect').value = p.dept;
+    document.getElementById('adminNewName').value = p.name;
+    document.getElementById('adminNewResp').value = p.primaryResp;
+    document.getElementById('adminPrimaryEmail').value = p.primaryEmail;
+    document.getElementById('adminCoName1').value = p.coName1 || '';
+    document.getElementById('adminCoEmail1').value = p.coEmail1 || '';
+    document.getElementById('adminCoName2').value = p.coName2 || '';
+    document.getElementById('adminCoEmail2').value = p.coEmail2 || '';
+    document.getElementById('adminNewBudget').value = p.budget ? Number(p.budget).toLocaleString('en-US') : '';
+    document.getElementById('adminNewWeight').value = p.weight || 0;
+
+    const header = document.getElementById('adminFormHeader');
+    header.innerHTML = `<span class="text-warning text-dark"><i class="bi bi-pencil-square me-1"></i> แก้ไขข้อมูลโครงการ: [${p.id}]</span>`;
+
+    const submitBtn = document.getElementById('adminSubmitBtn');
+    submitBtn.className = 'btn btn-primary px-4';
+    submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i> อัปเดตข้อมูลโครงการ';
+
+    const cancelBtn = document.getElementById('adminCancelEditBtn');
+    if (cancelBtn) cancelBtn.classList.remove('d-none');
+
+    document.getElementById('adminMasterForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function resetAdminMasterForm() {
+    isEditingMasterItem = false;
+    document.getElementById('adminMasterForm').reset();
+    document.getElementById('adminNewId').readOnly = false;
+    document.getElementById('adminNewFiscalYear').readOnly = false;
+    document.getElementById('adminNewFiscalYear').value = document.getElementById('dashYear').value;
+
+    const header = document.getElementById('adminFormHeader');
+    header.innerText = '➕ เพิ่มรายการโครงการ';
+
+    const submitBtn = document.getElementById('adminSubmitBtn');
+    submitBtn.className = 'btn btn-success px-4';
+    submitBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> บันทึกรายการเข้าฐานข้อมูล';
+
+    const cancelBtn = document.getElementById('adminCancelEditBtn');
+    if (cancelBtn) cancelBtn.classList.add('d-none');
+  }
+
+  function renderAdminProjectTable(list) {
+    const tbody = document.getElementById('adminProjectsTableBody');
+    if (!tbody) return;
+
+    if (!list || list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">ไม่พบรายการโครงการในปีงบประมาณนี้</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map(p => {
+      const bgtFormatted = p.budget ? Number(p.budget).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00';
+      const weightFormatted = p.weight ? Number(p.weight).toFixed(2) : '0.00';
+
+      return `
+        <tr>
+          <td class="fw-bold text-center bg-light">${p.id}</td>
+          <td class="text-center">${p.fiscalYear}</td>
+          <td>
+            <a href="javascript:void(0)" class="clickable-project text-dark" onclick="populateEditProject('${p.id}')" title="คลิกเพื่อแก้ไขข้อมูลโครงการ">
+              ${p.name}
+            </a>
+          </td>
+          <td class="text-end fw-bold text-primary">${bgtFormatted}</td>
+          <td class="text-end">${weightFormatted}%</td>
+          <td>
+            <div class="fw-bold">${p.primaryResp}</div>
+            <small class="text-muted" style="font-size: 0.72rem;">${p.primaryEmail}</small>
+          </td>
+          <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2" onclick="populateEditProject('${p.id}')" title="แก้ไขข้อมูลโครงการ">
+              <i class="bi bi-pencil-square"></i> แก้ไข
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function filterAdminProjectTable() {
+    const currentFY = String(document.getElementById('adminNewFiscalYear')?.value || document.getElementById('dashYear')?.value || '2569').trim();
+    const query = (document.getElementById('adminSearchProjectInput')?.value || '').toLowerCase().trim();
+
+    if (!masterData || !masterData.projects || masterData.projects.length === 0) {
+      google.script.run.withSuccessHandler(data => {
+        masterData = data || { projects: [], departments: [], totalMasterBudget: 0 };
+        updateDeptDropdown();
+        renderDeptTable(masterData.departments);
+        filterAdminProjectTable();
+      }).getMasterLists(currentFY);
+      return;
+    }
+
+    let filtered = masterData.projects || [];
+    if (currentFY) {
+      filtered = filtered.filter(p => String(p.fiscalYear).trim() === currentFY);
+    }
+    if (query) {
+      filtered = filtered.filter(p => 
+        p.id.toLowerCase().includes(query) || 
+        p.name.toLowerCase().includes(query) || 
+        p.primaryResp.toLowerCase().includes(query)
+      );
+    }
+    renderAdminProjectTable(filtered);
+    renderDeptTable(masterData.departments);
+  }
+
+  function handleAdminMasterSubmit(e) {
+    e.preventDefault();
+    const btn = document.getElementById('adminSubmitBtn');
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>กำลังบันทึก...';
+
+    const payload = {
+      id: document.getElementById('adminNewId').value,
+      fiscalYear: document.getElementById('adminNewFiscalYear').value,
+      name: document.getElementById('adminNewName').value,
+      responsible: document.getElementById('adminNewResp').value,
+      department: document.getElementById('adminNewDeptSelect').value,
+      primaryEmail: document.getElementById('adminPrimaryEmail').value,
+      coName1: document.getElementById('adminCoName1').value,
+      coEmail1: document.getElementById('adminCoEmail1').value,
+      coName2: document.getElementById('adminCoName2').value,
+      coEmail2: document.getElementById('adminCoEmail2').value,
+      budget: getCleanNumber(document.getElementById('adminNewBudget').value),
+      weight: document.getElementById('adminNewWeight').value
+    };
+
+    google.script.run
+      .withSuccessHandler(res => {
+        Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, confirmButtonColor: '#0d6efd' });
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        resetAdminMasterForm();
+        loadMasterAndDashboard();
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message, confirmButtonColor: '#dc3545' });
+      })
+      .addNewMasterItem(payload);
+  }
+
+  function loadAdminBudgetDocsTable() {
+    const currentFY = String(document.getElementById('docFiscalYear')?.value || document.getElementById('dashYear')?.value || '2569').trim();
+    const tbody = document.getElementById('adminDocsTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2" role="status"></span>กำลังโหลดรายการเอกสาร...</td></tr>';
+
+    google.script.run
+      .withSuccessHandler(docs => {
+        adminDocsCache = docs || [];
+        renderAdminBudgetDocsTable(adminDocsCache);
+      })
+      .withFailureHandler(err => {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-1"></i> โหลดเอกสารไม่สำเร็จ: ${err.message}</td></tr>`;
+      })
+      .getAllMasterBudgetDocsForAdmin(currentFY);
+  }
+
+  function renderAdminBudgetDocsTable(docs) {
+    const tbody = document.getElementById('adminDocsTableBody');
+    if (!tbody) return;
+
+    if (!docs || docs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">ยังไม่มีเอกสารงบประมาณโครงการใหญ่ในปีงบประมาณนี้</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = docs.map((d, idx) => {
+      const isPdf = d.fileName.toLowerCase().endsWith('.pdf');
+      const iconClass = isPdf ? 'bi-file-earmark-pdf text-danger' : 'bi-file-earmark-word text-primary';
+
+      return `
+        <tr data-doc-id="${d.id}">
+          <td class="text-center">
+            <input type="number" class="form-control form-control-sm text-center doc-priority-input py-0" value="${d.priority || (idx + 1)}" min="1" style="max-width: 65px; margin: 0 auto;">
+          </td>
+          <td>
+            <a href="${d.url}" target="_blank" class="fw-bold text-decoration-none text-dark d-block" title="คลิกเพื่อเปิดดูไฟล์">
+              <i class="bi ${iconClass} me-1 fs-6"></i> ${d.docName}
+            </a>
+            <small class="text-muted" style="font-size: 0.72rem;">ไฟล์: ${d.fileName}</small>
+          </td>
+          <td class="text-center"><span class="badge bg-light text-dark border">${d.category}</span></td>
+          <td class="text-center text-muted" style="font-size: 0.75rem;">${d.uploadedAt}</td>
+          <td class="text-center">
+            <select class="form-select form-select-sm doc-status-select" style="font-size: 0.78rem;">
+              <option value="active" ${d.isLatest ? 'selected' : ''}>🟢 บังคับใช้ (แสดง)</option>
+              <option value="archived" ${!d.isLatest ? 'selected' : ''}>⚪ ยกเลิก (ซ่อน)</option>
+            </select>
+          </td>
+          <td class="text-center">
+            <button type="button" class="btn btn-sm btn-primary py-0 px-2" onclick="saveDocRowSetting('${d.id}', this)" title="บันทึกการเปลี่ยนแปลงแถวนี้">
+              <i class="bi bi-save"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function saveDocRowSetting(docId, btnElem) {
+    const row = btnElem.closest('tr');
+    const priorityVal = Number(row.querySelector('.doc-priority-input').value) || 1;
+    const statusVal = row.querySelector('.doc-status-select').value;
+    const isActive = (statusVal === 'active');
+
+    btnElem.disabled = true;
+    const oldHtml = btnElem.innerHTML;
+    btnElem.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btnElem.disabled = false;
+        btnElem.innerHTML = oldHtml;
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'อัปเดตเอกสารแล้ว',
+          showConfirmButton: false,
+          timer: 2000
+        });
+        loadAdminBudgetDocsTable();
+        loadDashboard();
+      })
+      .withFailureHandler(err => {
+        btnElem.disabled = false;
+        btnElem.innerHTML = oldHtml;
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message });
+      })
+      .updateMasterBudgetDocStatus(docId, isActive, priorityVal);
+  }
+
+  async function handleMasterDocSubmit(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('docFile');
+    if (!fileInput.files || fileInput.files.length === 0) {
+      Swal.fire({ icon: 'warning', title: 'กรุณาเลือกไฟล์', text: 'โปรดเลือกไฟล์เอกสารที่ต้องการอัปโหลด' });
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const btn = document.getElementById('btnUploadMasterDoc');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>กำลังอัปโหลด...';
+
+    Swal.fire({
+      title: 'กำลังอัปโหลดเอกสารโครงการใหญ่...',
+      text: 'กรุณารอสักครู่ ระบบกำลังบันทึกไฟล์ลงในไดรฟ์',
+      allowOutsideClick: false,
+      didOpen: () => { Swal.showLoading(); }
+    });
+
+    const b64 = await toBase64(file);
+    const fileObj = { name: file.name, mimeType: file.type, base64: b64 };
+    const payload = {
+      fiscalYear: document.getElementById('docFiscalYear').value,
+      category: document.getElementById('docCategory').value,
+      docName: document.getElementById('docName').value,
+      priority: Number(document.getElementById('docPriority')?.value) || 1,
+      isLatest: document.getElementById('docIsLatest').checked
+    };
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-upload-fill me-1"></i> อัปโหลดเอกสารโครงการใหญ่';
+        Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, confirmButtonColor: '#0d6efd' });
+        document.getElementById('masterDocForm').reset();
+        document.getElementById('docFiscalYear').value = document.getElementById('dashYear').value;
+        loadAdminBudgetDocsTable();
+        loadDashboard();
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-upload-fill me-1"></i> อัปโหลดเอกสารโครงการใหญ่';
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message, confirmButtonColor: '#dc3545' });
+      })
+      .uploadMasterBudgetDoc(payload, fileObj);
+  }
+</script>

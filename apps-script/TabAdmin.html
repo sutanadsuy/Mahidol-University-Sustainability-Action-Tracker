@@ -1,0 +1,295 @@
+<div class="tab-pane fade" id="adminTab">
+  <div class="row g-4">
+    <!-- ฝั่งซ้าย: การตั้งค่าระบบพื้นฐาน (งบรวม, หน่วยงาน + ตารางหน่วยงาน, ค่าน้ำหนัก) -->
+    <div class="col-lg-4">
+      <!-- 1. งบรวมประจำปี (Master Budget) -->
+      <div class="card p-4 card-box bg-white mb-4 border-start border-dark border-4">
+        <h5 class="fw-bold text-dark mb-3">💰 งบรวมประจำปี (Master Budget)</h5>
+        <div class="mb-2">
+          <label class="form-label small fw-bold">ปีงบประมาณ</label>
+          <input type="number" id="adminBudgetYear" class="form-control form-control-sm" value="2569">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-bold">วงเงินงบประมาณรวมทั้งสิ้น (บาท)</label>
+          <input type="text" id="adminMasterBudgetVal" class="form-control form-control-sm" placeholder="เช่น 5,000,000" oninput="formatCurrencyInput(this);">
+        </div>
+        <button class="btn btn-dark w-100 fw-bold" onclick="saveBudgetSetting()">
+          <i class="bi bi-save me-1"></i> บันทึกงบรวม
+        </button>
+      </div>
+
+      <!-- 2. เพิ่มข้อมูลหน่วยงาน + ตารางรายชื่อหน่วยงาน (ตามตัวอย่าง) -->
+      <div class="card p-4 card-box bg-white mb-4 border-start border-primary border-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="fw-bold text-primary mb-0" id="deptFormHeader">🏢 เพิ่มข้อมูลหน่วยงาน</h5>
+          <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="deptCancelEditBtn" onclick="resetDeptForm()">
+            <i class="bi bi-x-circle me-1"></i> ยกเลิก
+          </button>
+        </div>
+
+        <form id="deptForm" onsubmit="handleDeptSubmit(event)">
+          <input type="hidden" id="deptEditId" value="">
+          <div class="mb-2">
+            <label class="form-label small fw-bold">ชื่อหน่วยงาน / งาน *</label>
+            <input type="text" id="deptName" class="form-control form-control-sm" placeholder="เช่น งานพัฒนาเพื่อความยั่งยืน" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-bold">ชื่อหัวหน้างาน *</label>
+            <input type="text" id="deptHeadName" class="form-control form-control-sm" placeholder="เช่น น.ส.ศศิวิมล ผุงเพิ่มตระกูล" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">อีเมลหัวหน้างาน *</label>
+            <input type="email" id="deptHeadEmail" class="form-control form-control-sm" placeholder="sasivimon.phu@mahidol.ac.th" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 fw-bold" id="btnSaveDept">
+            <i class="bi bi-building-add me-1"></i> บันทึกหน่วยงาน
+          </button>
+        </form>
+
+        <!-- ตารางรายชื่อหน่วยงานในฐานข้อมูล (ต่อท้ายฟอร์ม) -->
+        <div class="mt-4 pt-3 border-top">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <small class="fw-bold text-secondary"><i class="bi bi-buildings me-1"></i> หน่วยงานในระบบ</small>
+            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" style="font-size: 0.72rem;" onclick="renderDeptTable(masterData.departments)">
+              <i class="bi bi-arrow-repeat"></i> รีเฟรช
+            </button>
+          </div>
+          <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+            <table class="table table-sm table-bordered table-hover align-middle mb-0" style="font-size: 0.75rem;">
+              <thead class="table-light sticky-top">
+                <tr class="text-center">
+                  <th class="text-start">หน่วยงาน / งาน</th>
+                  <th class="text-start" style="width: 110px;">หัวหน้างาน</th>
+                  <th style="width: 45px;">แก้ไข</th>
+                </tr>
+              </thead>
+              <tbody id="adminDeptTableBody">
+                <tr><td colspan="3" class="text-center text-muted py-2">กำลังโหลดหน่วยงาน...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. ปรับค่าน้ำหนักขั้นตอน (Step Weights) -->
+      <div class="card p-4 card-box bg-white mb-4 border-start border-warning border-4">
+        <h5 class="fw-bold text-warning text-dark mb-3">⚙️ ปรับค่าน้ำหนักขั้นตอน (Step Weights)</h5>
+        <form id="weightsForm" onsubmit="handleWeightsSubmit(event)">
+          <div class="mb-2">
+            <label class="form-label small fw-bold">1. ร่างโครงการ (%)</label>
+            <input type="number" step="1" id="wDraft" class="form-control form-control-sm" oninput="calcTotalWeights()">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-bold">2. ขออนุมัติโครงการ (%)</label>
+            <input type="number" step="1" id="wAppr" class="form-control form-control-sm" oninput="calcTotalWeights()">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-bold">4. ดำเนินโครงการ (%)</label>
+            <input type="number" step="1" id="wExec" class="form-control form-control-sm" oninput="calcTotalWeights()">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-bold">5. ขออนุมัติเบิกจ่ายพร้อมวางฎีกา (%)</label>
+            <input type="number" step="1" id="wDisb" class="form-control form-control-sm" oninput="calcTotalWeights()">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">6. รายงานผลสำเร็จ (%)</label>
+            <input type="number" step="1" id="wRepo" class="form-control form-control-sm" oninput="calcTotalWeights()">
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <small class="fw-bold">ผลรวมค่าน้ำหนัก:</small>
+            <span id="totalWeightsBadge" class="badge bg-success fs-6">100%</span>
+          </div>
+          <button type="submit" class="btn btn-warning w-100 fw-bold" id="btnSaveWeights">
+            <i class="bi bi-check2-circle me-1"></i> บันทึกค่าน้ำหนักใหม่
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ฝั่งขวา: การจัดการโครงการ + การจัดการเอกสารงบประมาณโครงการใหญ่ -->
+    <div class="col-lg-8">
+      <!-- ส่วนที่ 1: เพิ่ม / แก้ไขรายการโครงการ -->
+      <div class="card p-4 card-box bg-white mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="fw-bold text-dark mb-0" id="adminFormHeader">➕ เพิ่มรายการโครงการ</h5>
+          <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="adminCancelEditBtn" onclick="resetAdminMasterForm()">
+            <i class="bi bi-x-circle me-1"></i> ยกเลิกการแก้ไข (สร้างโครงการใหม่)
+          </button>
+        </div>
+
+        <form id="adminMasterForm" onsubmit="handleAdminMasterSubmit(event)">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label fw-bold">รหัสรายการ (ID) *</label>
+              <input type="text" id="adminNewId" class="form-control" placeholder="เช่น PRJ-69-01" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold text-primary">ปีงบประมาณ *</label>
+              <input type="number" id="adminNewFiscalYear" class="form-control border-primary" value="2569" required onchange="filterAdminProjectTable()">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">หน่วยงานที่รับผิดชอบ *</label>
+              <select id="adminNewDeptSelect" class="form-select" required></select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">ชื่อโครงการ *</label>
+              <input type="text" id="adminNewName" class="form-control" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label text-primary fw-bold">1. ชื่อผู้รับผิดชอบหลัก *</label>
+              <input type="text" id="adminNewResp" class="form-control" placeholder="ชื่อ-นามสกุล" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-primary fw-bold">อีเมลผู้รับผิดชอบหลัก *</label>
+              <input type="email" id="adminPrimaryEmail" class="form-control" placeholder="name.sur@mahidol.ac.th" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label text-secondary">2. ชื่อผู้รับผิดชอบรอง (คนที่ 1)</label>
+              <input type="text" id="adminCoName1" class="form-control" placeholder="ชื่อ-นามสกุล">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-secondary">อีเมลผู้รับผิดชอบรอง (คนที่ 1)</label>
+              <input type="email" id="adminCoEmail1" class="form-control" placeholder="name.sur@mahidol.ac.th">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label text-secondary">3. ชื่อผู้รับผิดชอบรอง (คนที่ 2)</label>
+              <input type="text" id="adminCoName2" class="form-control" placeholder="ชื่อ-นามสกุล">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-secondary">อีเมลผู้รับผิดชอบรอง (คนที่ 2)</label>
+              <input type="email" id="adminCoEmail2" class="form-control" placeholder="name.sur@mahidol.ac.th">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">งบประมาณจัดสรร (บาท)</label>
+              <input type="text" id="adminNewBudget" class="form-control" placeholder="0.00" oninput="formatCurrencyInput(this); calcAutoWeight();">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">ค่าน้ำหนักตามงบ (%) [Auto]</label>
+              <input type="number" step="0.01" id="adminNewWeight" class="form-control bg-light" readonly>
+            </div>
+
+            <div class="col-12 text-end mt-4">
+              <button type="submit" class="btn btn-success px-4" id="adminSubmitBtn">
+                <i class="bi bi-plus-circle me-1"></i> บันทึกรายการเข้าฐานข้อมูล
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- ส่วนที่ 2: ตารางรายละเอียดโครงการในฐานข้อมูล -->
+      <div class="card p-4 card-box bg-white mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+          <div>
+            <h6 class="fw-bold text-primary mb-1"><i class="bi bi-table me-1"></i> รายการโครงการทั้งหมดในฐานข้อมูล</h6>
+            <small class="text-muted">คลิกที่ชื่อโครงการหรือปุ่มแก้ไข เพื่อดึงข้อมูลขึ้นไปปรับปรุงที่ฟอร์มด้านบน</small>
+          </div>
+          <div class="mt-2 mt-md-0" style="min-width: 200px;">
+            <input type="text" id="adminSearchProjectInput" class="form-control form-control-sm" placeholder="🔍 ค้นหารหัส / ชื่อโครงการ..." oninput="filterAdminProjectTable()">
+          </div>
+        </div>
+
+        <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+          <table class="table table-bordered table-hover align-middle mb-0" style="font-size: 0.82rem;">
+            <thead class="table-light sticky-top">
+              <tr class="text-center">
+                <th style="width: 100px;">รหัส (ID)</th>
+                <th style="width: 70px;">ปีงบ</th>
+                <th class="text-start">ชื่อโครงการ</th>
+                <th style="width: 110px;">งบประมาณ (บ.)</th>
+                <th style="width: 75px;">ร้อยละ (%)</th>
+                <th class="text-start" style="width: 160px;">ผู้รับผิดชอบหลัก</th>
+                <th style="width: 75px;">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="adminProjectsTableBody">
+              <tr><td colspan="7" class="text-center text-muted py-4">กำลังโหลดข้อมูลโครงการ...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ส่วนที่ 3: ฟอร์มอัปโหลดเอกสารงบประมาณโครงการใหญ่ -->
+      <div class="card p-4 card-box bg-white mb-4 border-start border-info border-4">
+        <h5 class="fw-bold text-primary mb-3"><i class="bi bi-folder-plus me-1"></i> จัดการเอกสารงบประมาณโครงการใหญ่</h5>
+        <form id="masterDocForm" onsubmit="handleMasterDocSubmit(event)">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small fw-bold">ปีงบประมาณ *</label>
+              <input type="number" id="docFiscalYear" class="form-control form-control-sm" value="2569" required onchange="loadAdminBudgetDocsTable()">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label small fw-bold">ประเภทเอกสาร *</label>
+              <select id="docCategory" class="form-select form-select-sm" required>
+                <option value="ขออนุมัติในหลักการ">1. หนังสือขออนุมัติในหลักการแผนงานขับเคลื่อนฯ (งบใหญ่ประจำปี)</option>
+                <option value="ขออนุมัติเจียดจ่ายงบ">2. หนังสือขออนุมัติเจียดจ่ายงบประมาณ</option>
+                <option value="ขออนุมัติกันงบประมาณ">3. หนังสือขออนุมัติกันเงินเบิกจ่ายเหลื่อมปี</option>
+                <option value="เอกสารงบประมาณอื่นๆ">4. เอกสารอื่นๆ ที่เกี่ยวข้อง</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label small fw-bold">ชื่อเอกสาร / รายละเอียด *</label>
+              <input type="text" id="docName" class="form-control form-control-sm" placeholder="เช่น ขออนุมัติเจียดจ่ายงบ 69 (ฉบับ 900,000 บาท)" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold">ลำดับความสำคัญ (Priority)</label>
+              <input type="number" id="docPriority" class="form-control form-control-sm" value="1" min="1" placeholder="เช่น 1, 2, 3">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label small fw-bold">เลือกไฟล์เอกสาร (PDF หรือ Word ไม่จำกัดขนาด) *</label>
+              <input type="file" id="docFile" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xls,.xlsx" required>
+            </div>
+            <div class="col-md-6 d-flex align-items-center">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="docIsLatest" checked>
+                <label class="form-check-label small fw-bold text-success" for="docIsLatest">
+                  ตั้งเป็น "เอกสารบังคับใช้" สำหรับอ้างอิงบนแดชบอร์ด
+                </label>
+              </div>
+            </div>
+            <div class="col-md-6 text-end">
+              <button type="submit" class="btn btn-info text-white fw-bold px-4" id="btnUploadMasterDoc">
+                <i class="bi bi-cloud-upload-fill me-1"></i> อัปโหลดเอกสารโครงการใหญ่
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- ส่วนที่ 4: ตารางบริหารจัดการเอกสารงบประมาณโครงการใหญ่ในระบบ -->
+      <div class="card p-4 card-box bg-white">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+          <div>
+            <h6 class="fw-bold text-info text-dark mb-1"><i class="bi bi-file-earmark-text-fill text-info me-1"></i> รายการเอกสารงบประมาณโครงการใหญ่ในระบบ</h6>
+            <small class="text-muted">คลิกชื่อเอกสารเพื่อเปิดดู/ดาวน์โหลด, กำหนดลำดับความสำคัญ และเปิด-ปิดสถานะการบังคับใช้บนแดชบอร์ด</small>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-info mt-2 mt-md-0" onclick="loadAdminBudgetDocsTable()">
+            <i class="bi bi-arrow-repeat me-1"></i> รีเฟรชเอกสาร
+          </button>
+        </div>
+
+        <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+          <table class="table table-bordered table-hover align-middle mb-0" style="font-size: 0.82rem;">
+            <thead class="table-light sticky-top">
+              <tr class="text-center">
+                <th style="width: 80px;" title="เลขลำดับที่แสดงบนแดชบอร์ด">ลำดับ</th>
+                <th class="text-start">ชื่อเอกสาร / รายละเอียด (คลิกเปิดไฟล์)</th>
+                <th style="width: 140px;">หมวดหมู่</th>
+                <th style="width: 130px;">วันที่อัปโหลด</th>
+                <th style="width: 140px;">สถานะการบังคับใช้</th>
+                <th style="width: 75px;">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="adminDocsTableBody">
+              <tr><td colspan="6" class="text-center text-muted py-4">กำลังโหลดรายการเอกสาร...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

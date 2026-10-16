@@ -1,0 +1,326 @@
+<script>
+  let chartProgress = null, chartExpense = null, chartSdg = null;
+
+  window.onload = function() {
+    initYearDropdowns();
+    initPlanMonthDropdowns();
+    
+    const currentYear = document.getElementById('dashYear').value;
+
+    const statusBadge = document.getElementById('dashLoadingStatus');
+    if (statusBadge) {
+      statusBadge.innerHTML = `
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-2">
+          <span class="spinner-border spinner-border-sm me-1" role="status"></span>กำลังประมวลผลข้อมูล...
+        </span>
+      `;
+    }
+
+    // Call 1: โหลดข้อมูลตัวกรองพื้นฐาน และตรวจสอบสิทธิ์ผู้ใช้
+    google.script.run.withSuccessHandler(res => {
+      if (!res) return;
+
+      // จัดการอีเมลผู้ใช้
+      const userEmail = res.userAccess ? res.userAccess.userEmail : '';
+      const emailBadge = document.getElementById('userEmailBadge');
+      if (emailBadge) emailBadge.innerText = userEmail;
+      
+      const actEmail = document.getElementById('actSubmitterEmail');
+      if (actEmail) actEmail.value = userEmail;
+      
+      const setupEmail = document.getElementById('setupSubmitterEmail');
+      if (setupEmail) setupEmail.value = userEmail;
+
+      // ตรวจสอบสิทธิ์และควบคุมการแสดงผลแท็บแอดมิน
+      const adminNavButton = document.querySelector('[data-bs-target="#adminTab"]') || 
+                             document.querySelector('button[onclick*="adminTab"]') || 
+                             document.getElementById('adminTabNav');
+      if (adminNavButton) {
+        if (res.userAccess && res.userAccess.isAdmin) {
+          adminNavButton.classList.remove('d-none');
+        } else {
+          adminNavButton.classList.add('d-none'); // ซ่อนเมนูจัดการระบบสำหรับผู้ใช้ทั่วไป
+        }
+      }
+      
+      if (res.weights) {
+        document.getElementById('wDraft').value = res.weights.draft;
+        document.getElementById('wAppr').value = res.weights.approval;
+        document.getElementById('wExec').value = res.weights.execute;
+        document.getElementById('wDisb').value = res.weights.disburse;
+        document.getElementById('wRepo').value = res.weights.report;
+        calcTotalWeights();
+      }
+
+      masterData = res.master || { projects: [], departments: [], totalMasterBudget: 0 };
+      document.getElementById('adminMasterBudgetVal').value = dataTotalFormat(masterData.totalMasterBudget);
+      
+      updateDropdowns();
+      updateMatrixRefDropdown();
+      updateDeptDropdown();
+      updateDashProjectDropdown();
+      
+      if (typeof filterAdminProjectTable === 'function') {
+        filterAdminProjectTable();
+      }
+    }).withFailureHandler(err => {
+      const message = err && err.message ? err.message : 'ไม่สามารถโหลดข้อมูลเริ่มต้นได้';
+      if (statusBadge) {
+        statusBadge.innerHTML = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2">โหลดข้อมูลเริ่มต้นไม่สำเร็จ</span>';
+      }
+      const emailBadge = document.getElementById('userEmailBadge');
+      if (emailBadge) emailBadge.innerText = message;
+      console.error('getInitialBootstrapData failed:', err);
+    }).getInitialBootstrapData(currentYear);
+
+    // Call 2: โหลดข้อมูล Dashboard ทันที
+    google.script.run.withSuccessHandler(res => {
+      if (!res) return;
+      populateAsOfMonthDropdown(res.timelineKeys);
+      renderDashboardUI(res);
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+      if (statusBadge) {
+        statusBadge.innerHTML = `
+          <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
+            <i class="bi bi-check-circle-fill me-1"></i>อัปเดตข้อมูลแล้ว (${timeStr} น.)
+          </span>
+        `;
+      }
+    }).withFailureHandler(err => {
+      if (statusBadge) {
+        statusBadge.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>เกิดข้อผิดพลาดในการโหลด</span>`;
+      }
+    }).getDashboardReport(currentYear, 'ALL', 'ALL', 'ALL');
+  };
+
+  function dataTotalFormat(val) {
+    return val ? Number(val).toLocaleString('en-US') : '';
+  }
+
+  function populateAsOfMonthDropdown(keys) {
+    const sel = document.getElementById('dashAsOfMonth');
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="ALL">-- เลือกเดือนที่ต้องการดูข้อมูล --</option>';
+    if (keys && keys.length > 0) {
+      keys.forEach(k => {
+        sel.innerHTML += `<option value="${k}">${k}</option>`;
+      });
+    }
+    if (currentVal) sel.value = currentVal;
+  }
+
+  // กรองโครงการตามหน่วยงานที่เลือก
+  function updateDashProjectDropdown() {
+    const deptSel = document.getElementById('dashDept');
+    const projSel = document.getElementById('dashRefId');
+    if (!projSel) return;
+
+    const selectedDept = deptSel ? deptSel.value : 'ALL';
+    const currentVal = projSel.value;
+
+    projSel.innerHTML = '<option value="ALL">-- แสดงภาพรวมทั้งหมด --</option>';
+
+    if (masterData && masterData.projects && masterData.projects.length > 0) {
+      const filtered = masterData.projects.filter(p => {
+        if (selectedDept === 'ALL') return true;
+        const pDept = (p.dept || p.department || p.deptName || '').trim();
+        return pDept === selectedDept.trim();
+      });
+
+      filtered.forEach(p => {
+        projSel.innerHTML += `<option value="${p.id}">${p.id} - ${p.name}</option>`;
+      });
+
+      const exists = filtered.some(p => p.id === currentVal);
+      projSel.value = exists ? currentVal : 'ALL';
+    }
+  }
+
+  function onDashDeptChange() {
+    updateDashProjectDropdown();
+    loadDashboard();
+  }
+
+  function loadMasterAndDashboard() {
+    const year = document.getElementById('dashYear').value;
+    google.script.run.withSuccessHandler(data => {
+      masterData = data || { projects: [], departments: [], totalMasterBudget: 0 };
+      document.getElementById('adminMasterBudgetVal').value = dataTotalFormat(data.totalMasterBudget);
+      updateDropdowns();
+      updateMatrixRefDropdown();
+      updateDeptDropdown();
+      updateDashProjectDropdown();
+
+      if (typeof filterAdminProjectTable === 'function') {
+        filterAdminProjectTable();
+      }
+      loadDashboard();
+    }).getMasterLists(year);
+  }
+
+  function loadDashboard() {
+    const year = document.getElementById('dashYear').value;
+    const dept = document.getElementById('dashDept').value;
+    const refId = document.getElementById('dashRefId').value;
+    const asOfMonth = document.getElementById('dashAsOfMonth').value;
+
+    const statusBadge = document.getElementById('dashLoadingStatus');
+    if (statusBadge) {
+      statusBadge.innerHTML = `
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-2">
+          <span class="spinner-border spinner-border-sm me-1" role="status"></span>กำลังประมวลผลข้อมูล...
+        </span>
+      `;
+    }
+
+    google.script.run
+      .withSuccessHandler(res => {
+        if (!res) return;
+        populateAsOfMonthDropdown(res.timelineKeys);
+        document.getElementById('dashAsOfMonth').value = asOfMonth; 
+
+        renderDashboardUI(res);
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
+              <i class="bi bi-check-circle-fill me-1"></i>อัปเดตข้อมูลแล้ว (${timeStr} น.)
+            </span>
+          `;
+        }
+      })
+      .withFailureHandler(err => {
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>เกิดข้อผิดพลาดในการโหลด
+            </span>
+          `;
+        }
+      })
+      .getDashboardReport(year, dept, refId, asOfMonth);
+  }
+
+  function drillDownToProject(projectId) {
+    document.getElementById('dashRefId').value = projectId;
+    loadDashboard();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function resetToAllDashboard() {
+    document.getElementById('dashRefId').value = 'ALL';
+    loadDashboard();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // --- จัดการหน้า Matrix ---
+  function onMatrixFilterChange() {
+    const year = document.getElementById('matrixYear').value;
+    const statusBadge = document.getElementById('matrixLoadingStatus');
+    if (statusBadge) {
+      statusBadge.innerHTML = `
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-2">
+          <span class="spinner-border spinner-border-sm me-1" role="status"></span>กำลังโหลดรายชื่อโครงการ...
+        </span>
+      `;
+    }
+
+    google.script.run.withSuccessHandler(data => {
+      masterData = data || { projects: [], departments: [], totalMasterBudget: 0 };
+      updateMatrixRefDropdown();
+    }).getMasterLists(year);
+  }
+
+  function loadTrackingMatrix() {
+    const year = document.getElementById('matrixYear').value;
+    const refId = document.getElementById('matrixRefId').value;
+    const statusBadge = document.getElementById('matrixLoadingStatus');
+    const tbody = document.getElementById('matrixTableBody');
+
+    if (!refId) {
+      if (tbody) tbody.innerHTML = '<tr><td colspan="15" class="text-muted py-4">กรุณาเลือกรายการโครงการด้านบน</td></tr>';
+      return;
+    }
+
+    if (statusBadge) {
+      statusBadge.innerHTML = `
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-2">
+          <span class="spinner-border spinner-border-sm me-1" role="status"></span>กำลังประมวลผลข้อมูล...
+        </span>
+      `;
+    }
+
+    google.script.run
+      .withSuccessHandler(data => {
+        if (!tbody) return;
+        if (!data || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="15" class="text-muted py-4">ยังไม่มีข้อมูลการวางแผนหรือรายงานผลในโครงการนี้</td></tr>';
+          if (statusBadge) {
+            statusBadge.innerHTML = `<span class="badge bg-light text-muted border py-1 px-2"><i class="bi bi-info-circle me-1"></i>ไม่พบข้อมูล</span>`;
+          }
+          return;
+        }
+
+        let totalDraftP = 0, totalDraftA = 0, totalApprP = 0, totalApprA = 0, totalProcP = 0, totalProcA = 0, totalExecP = 0, totalExecA = 0, totalDisbP = 0, totalDisbA = 0, totalRepoP = 0, totalRepoA = 0;
+
+        let rowsHtml = data.map(r => {
+          totalDraftP += Number(r.draftP) || 0; totalDraftA += Number(r.draftA) || 0;
+          totalApprP += Number(r.apprP) || 0; totalApprA += Number(r.apprA) || 0;
+          totalProcP += Number(r.procP) || 0; totalProcA += Number(r.procA) || 0;
+          totalExecP += Number(r.execP) || 0; totalExecA += Number(r.execA) || 0;
+          totalDisbP += Number(r.disbP) || 0; totalDisbA += Number(r.disbA) || 0;
+          totalRepoP += Number(r.repoP) || 0; totalRepoA += Number(r.repoA) || 0;
+
+          return `
+            <tr>
+              <td class="fw-bold bg-light">${r.monthYear}</td>
+              <td>${r.draftP}%</td><td class="${r.draftA < r.draftP ? 'text-danger fw-bold' : 'text-success'}">${r.draftA}%</td>
+              <td>${r.apprP}%</td><td class="${r.apprA < r.apprP ? 'text-danger fw-bold' : 'text-success'}">${r.apprA}%</td>
+              <td>${Number(r.procP).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="text-primary">${Number(r.procA).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              <td>${r.execP}%</td><td class="${r.execA < r.execP ? 'text-danger fw-bold' : 'text-success'}">${r.execA}%</td>
+              <td>${r.disbP}%</td><td class="${r.disbA < r.disbP ? 'text-danger fw-bold' : 'text-success'}">${r.disbA}%</td>
+              <td>${r.repoP}%</td><td class="${r.repoA < r.repoP ? 'text-danger fw-bold' : 'text-success'}">${r.repoA}%</td>
+              <td class="text-start small">${r.summary || '-'}</td>
+              <td class="text-start text-danger small">${r.delayReason || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        rowsHtml += `
+          <tr class="table-secondary fw-bold text-dark">
+            <td>ผลรวมสะสม / เฉลี่ย</td>
+            <td>${(totalDraftP).toFixed(1)}%</td><td>${(totalDraftA).toFixed(1)}%</td>
+            <td>${(totalApprP).toFixed(1)}%</td><td>${(totalApprA).toFixed(1)}%</td>
+            <td>${totalProcP.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="text-primary">${totalProcA.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td>${(totalExecP).toFixed(1)}%</td><td>${(totalExecA).toFixed(1)}%</td>
+            <td>${(totalDisbP).toFixed(1)}%</td><td>${(totalDisbA).toFixed(1)}%</td>
+            <td>${(totalRepoP).toFixed(1)}%</td><td>${(totalRepoA).toFixed(1)}%</td>
+            <td colspan="2" class="text-center text-primary">รวมยอดงบเบิกจ่ายจริงสะสม: ${totalProcA.toLocaleString('en-US', { minimumFractionDigits: 2 })} บาท</td>
+          </tr>
+        `;
+
+        tbody.innerHTML = rowsHtml;
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
+              <i class="bi bi-check-circle-fill me-1"></i>อัปเดตข้อมูลแล้ว (${timeStr} น.)
+            </span>
+          `;
+        }
+      })
+      .withFailureHandler(err => {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="15" class="text-danger py-4">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${err.message}</td></tr>`;
+        if (statusBadge) {
+          statusBadge.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>เกิดข้อผิดพลาด</span>`;
+        }
+      })
+      .getProjectYearlyMatrix(year, refId);
+  }
+</script>

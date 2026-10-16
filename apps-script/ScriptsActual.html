@@ -1,0 +1,634 @@
+<script>
+  function toggleActualMatrix() {
+    const box = document.getElementById('collapseMatrixActual');
+    const icon = document.getElementById('matrixToggleIcon');
+    if (!box) return;
+
+    if (box.style.display === 'none' || box.style.display === '') {
+      box.style.display = 'block';
+      if (icon) {
+        icon.className = 'bi bi-chevron-up text-primary';
+      }
+    } else {
+      box.style.display = 'none';
+      if (icon) {
+        icon.className = 'bi bi-chevron-down text-secondary';
+      }
+    }
+  }
+
+  function resetFileQueue() {
+    stagedFilesQueue = [];
+    renderFileQueueUI();
+    const fileInput = document.getElementById('actFiles');
+    if (fileInput) fileInput.value = '';
+  }
+
+  async function handleStagingFiles(input) {
+    if (!input.files || input.files.length === 0) return;
+    for (let i = 0; i < input.files.length; i++) {
+      let file = input.files[i];
+      if (file.type.includes('image')) {
+        try {
+          file = await compressImageFile(file, 1200, 1200, 0.7);
+        } catch (e) { console.error('Compression failed:', e); }
+      }
+      stagedFilesQueue.push({ id: Math.random().toString(36).substring(2, 9), file: file });
+    }
+    renderFileQueueUI();
+    input.value = '';
+  }
+
+  function removeStagedFile(fileId) {
+    stagedFilesQueue = stagedFilesQueue.filter(item => item.id !== fileId);
+    renderFileQueueUI();
+  }
+
+  function renderFileQueueUI() {
+    const container = document.getElementById('fileQueueContainer');
+    if (!container) return;
+    if (stagedFilesQueue.length === 0) {
+      container.innerHTML = '<small class="text-muted italic">ยังไม่มีไฟล์ในคิวอัปโหลด</small>';
+      return;
+    }
+    container.innerHTML = stagedFilesQueue.map(item => {
+      const sizeKB = (item.file.size / 1024).toFixed(1);
+      const isImg = item.file.type.includes('image');
+      const previewBtn = isImg ? `<button type="button" class="btn btn-sm btn-outline-info py-0 px-2" onclick="previewStagedImage('${item.id}')"><i class="bi bi-eye"></i> ดูภาพ</button>` : '';
+      return `
+        <div class="p-2 mb-1 border rounded bg-white d-flex justify-content-between align-items-center small">
+          <div class="text-truncate" style="max-width: 65%;">
+            <i class="bi ${isImg ? 'bi-file-earmark-image text-success' : 'bi-file-earmark-pdf text-danger'} me-1"></i>
+            <strong>${item.file.name}</strong> <span class="text-muted">(${sizeKB} KB)</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            ${previewBtn}
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="removeStagedFile('${item.id}')"><i class="bi bi-trash"></i> ลบ</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function previewStagedImage(fileId) {
+    const found = stagedFilesQueue.find(i => i.id === fileId);
+    if (found) {
+      const url = URL.createObjectURL(found.file);
+      Swal.fire({
+        title: found.file.name,
+        imageUrl: url,
+        imageAlt: 'Preview',
+        confirmButtonColor: '#0d6efd'
+      });
+    }
+  }
+
+  // วาดรายการไฟล์ที่เคยอัปโหลดไว้แล้วในรอบเดือนนี้ พร้อมปุ่มดูและปุ่มลบ
+  function renderExistingMonthFiles(files) {
+    const container = document.getElementById('uploadedFilesListContainer');
+    const badge = document.getElementById('uploadedFilesCountBadge');
+    if (!container) return;
+
+    if (!files || files.length === 0) {
+      container.innerHTML = '<small class="text-muted italic">ยังไม่มีไฟล์ที่เคยบันทึกในรอบเดือนนี้</small>';
+      if (badge) badge.innerText = '0 รายการ';
+      return;
+    }
+
+    if (badge) badge.innerText = `${files.length} รายการ`;
+
+    container.innerHTML = files.map(f => {
+      const isImg = (f.type === 'รูปภาพ' || String(f.name).match(/\.(jpg|jpeg|png|webp)$/i));
+      return `
+        <div class="p-2 mb-1 border rounded bg-light d-flex justify-content-between align-items-center small">
+          <div class="text-truncate" style="max-width: 65%;">
+            <i class="bi ${isImg ? 'bi-file-earmark-image-fill text-success' : 'bi-file-earmark-pdf-fill text-danger'} me-1"></i>
+            <strong>${f.name}</strong>
+            <span class="text-muted" style="font-size: 0.72rem;">(${f.type} | บันทึก: ${f.uploadedAt || '-'})</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <a href="${f.url}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.72rem;">
+              <i class="bi bi-eye"></i> ดูไฟล์
+            </a>
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size: 0.72rem;" onclick="confirmDeleteFile('${f.id}', '${f.name}')">
+              <i class="bi bi-trash"></i> ลบ
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ฟังก์ชันกดยืนยันลบไฟล์
+  function confirmDeleteFile(fileRowId, fileName) {
+    Swal.fire({
+      title: 'ยืนยันการลบไฟล์?',
+      text: `คุณต้องการลบไฟล์ "${fileName}" ออกจากระบบและ Google Drive ใช่หรือไม่?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'ใช่, ลบไฟล์นี้',
+      cancelButtonText: 'ยกเลิก'
+    }).then(result => {
+      if (result.isConfirmed) {
+        Swal.fire({
+          title: 'กำลังลบไฟล์...',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
+        });
+
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res.success) {
+              Swal.fire({ icon: 'success', title: 'ลบสำเร็จ!', text: res.message, timer: 1500, showConfirmButton: false });
+              checkMonthlyContext();
+              loadDashboard();
+            } else {
+              Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: res.message });
+            }
+          })
+          .withFailureHandler(err => {
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message });
+          })
+          .deleteAttachmentFile(fileRowId);
+      }
+    });
+  }
+
+  function loadActualTrackingMatrix() {
+    const year = document.getElementById('actYear').value;
+    const refId = document.getElementById('actRefId').value;
+    const statusBadge = document.getElementById('actualMatrixStatus');
+    const tbody = document.getElementById('actualMatrixTableBody');
+
+    if (!refId) {
+      if (tbody) tbody.innerHTML = '<tr><td colspan="15" class="text-muted py-3">กรุณาเลือกรายการโครงการด้านบน</td></tr>';
+      return;
+    }
+
+    if (statusBadge) {
+      statusBadge.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>กำลังโหลดตาราง...';
+      statusBadge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-2';
+    }
+
+    google.script.run
+      .withSuccessHandler(data => {
+        if (!tbody) return;
+        if (!data || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="15" class="text-muted py-3">ยังไม่มีข้อมูลการวางแผนหรือรายงานผลในโครงการนี้</td></tr>';
+          if (statusBadge) {
+            statusBadge.innerHTML = '<i class="bi bi-info-circle me-1"></i>ไม่พบข้อมูล';
+            statusBadge.className = 'badge bg-light text-muted border py-1 px-2';
+          }
+          return;
+        }
+
+        let totalDraftP = 0, totalDraftA = 0, totalApprP = 0, totalApprA = 0, totalProcP = 0, totalProcA = 0, totalExecP = 0, totalExecA = 0, totalDisbP = 0, totalDisbA = 0, totalRepoP = 0, totalRepoA = 0;
+
+        let rowsHtml = data.map(r => {
+          totalDraftP += Number(r.draftP) || 0; totalDraftA += Number(r.draftA) || 0;
+          totalApprP += Number(r.apprP) || 0; totalApprA += Number(r.apprA) || 0;
+          totalProcP += Number(r.procP) || 0; totalProcA += Number(r.procA) || 0;
+          totalExecP += Number(r.execP) || 0; totalExecA += Number(r.execA) || 0;
+          totalDisbP += Number(r.disbP) || 0; totalDisbA += Number(r.disbA) || 0;
+          totalRepoP += Number(r.repoP) || 0; totalRepoA += Number(r.repoA) || 0;
+
+          return `
+            <tr>
+              <td class="fw-bold bg-light">${r.monthYear}</td>
+              <td>${r.draftP}%</td><td class="${r.draftA < r.draftP ? 'text-danger fw-bold' : 'text-success'}">${r.draftA}%</td>
+              <td>${r.apprP}%</td><td class="${r.apprA < r.apprP ? 'text-danger fw-bold' : 'text-success'}">${r.apprA}%</td>
+              <td>${Number(r.procP).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="text-primary">${Number(r.procA).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              <td>${r.execP}%</td><td class="${r.execA < r.execP ? 'text-danger fw-bold' : 'text-success'}">${r.execA}%</td>
+              <td>${r.disbP}%</td><td class="${r.disbA < r.disbP ? 'text-danger fw-bold' : 'text-success'}">${r.disbA}%</td>
+              <td>${r.repoP}%</td><td class="${r.repoA < r.repoP ? 'text-danger fw-bold' : 'text-success'}">${r.repoA}%</td>
+              <td class="text-start small">${r.summary || '-'}</td>
+              <td class="text-start text-danger small">${r.delayReason || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        rowsHtml += `
+          <tr class="table-secondary fw-bold text-dark">
+            <td>ผลรวมสะสม / เฉลี่ย</td>
+            <td>${(totalDraftP).toFixed(1)}%</td><td>${(totalDraftA).toFixed(1)}%</td>
+            <td>${(totalApprP).toFixed(1)}%</td><td>${(totalApprA).toFixed(1)}%</td>
+            <td>${totalProcP.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="text-primary">${totalProcA.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td>${(totalExecP).toFixed(1)}%</td><td>${(totalExecA).toFixed(1)}%</td>
+            <td>${(totalDisbP).toFixed(1)}%</td><td>${(totalDisbA).toFixed(1)}%</td>
+            <td>${(totalRepoP).toFixed(1)}%</td><td>${(totalRepoA).toFixed(1)}%</td>
+            <td colspan="2" class="text-center text-primary">รวมยอดงบเบิกจ่ายจริงสะสม: ${totalProcA.toLocaleString('en-US', { minimumFractionDigits: 2 })} บาท</td>
+          </tr>
+        `;
+
+        tbody.innerHTML = rowsHtml;
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+        if (statusBadge) {
+          statusBadge.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>อัปเดตแล้ว (${timeStr} น.)`;
+          statusBadge.className = 'badge bg-success-subtle text-success border border-success-subtle py-1 px-2';
+        }
+      })
+      .withFailureHandler(err => {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="15" class="text-danger py-3">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${err.message}</td></tr>`;
+        if (statusBadge) {
+          statusBadge.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>เกิดข้อผิดพลาด';
+          statusBadge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2';
+        }
+      })
+      .getProjectYearlyMatrix(year, refId);
+  }
+
+  function checkMonthlyContext() {
+    const y = document.getElementById('actYear').value;
+    const actY = document.getElementById('actActualYear').value;
+    const r = document.getElementById('actRefId').value;
+    const m = document.getElementById('actMonth').value;
+
+    if (!r) return;
+
+    loadActualTrackingMatrix();
+
+    const statusEl = document.getElementById('monthLoadingStatus');
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" role="status"></span> <small class="text-primary">กำลังโหลดข้อมูล...</small>';
+    }
+
+    google.script.run
+      .withSuccessHandler(res => {
+        currentContextData = res;
+        document.getElementById('pastProg').innerText = res.pastActualProgressAcc.toFixed(2) + '%';
+        document.getElementById('pastExp').innerText = res.pastActualExpenseAcc.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' บาท';
+        
+        document.getElementById('actDraft').value = res.steps.draft.curAct || '';
+        document.getElementById('actApproval').value = res.steps.approval.curAct || '';
+        document.getElementById('actExecute').value = res.steps.execute.curAct || '';
+        document.getElementById('actDisburse').value = res.steps.disburse.curAct || '';
+        document.getElementById('actReport').value = res.steps.report.curAct || '';
+        document.getElementById('actSummary').value = res.currentSummary || '';
+        document.getElementById('actDelayReason').value = res.currentDelayReason || '';
+
+        const auditBox = document.getElementById('auditTrailBox');
+        if (res.lastAuditInfo) {
+          auditBox.innerHTML = `🕒 ข้อมูลเดือนนี้บันทึก/แก้ไขล่าสุดเมื่อ: <strong>${res.lastAuditInfo.updatedAt}</strong> โดย: <code>${res.lastAuditInfo.updatedBy}</code>`;
+        } else {
+          auditBox.innerHTML = `🕒 เดือนนี้ยังไม่มีประวัติการบันทึกข้อมูล`;
+        }
+
+        const yearlySteps = res.yearlyCompletedSteps || {};
+        applySoftLockStep('draft', res.steps.draft, 'actDraft', 'lock-badge-draft', 'unlock-btn-draft', yearlySteps['draft']);
+        applySoftLockStep('appr', res.steps.approval, 'actApproval', 'lock-badge-appr', 'unlock-btn-appr', yearlySteps['approval']);
+        applySoftLockStep('exec', res.steps.execute, 'actExecute', 'lock-badge-exec', 'unlock-btn-exec', yearlySteps['execute']);
+        applySoftLockStep('disb', res.steps.disburse, 'actDisburse', 'lock-badge-disb', 'unlock-btn-disb', yearlySteps['disburse']);
+        applySoftLockStep('repo', res.steps.report, 'actReport', 'lock-badge-repo', 'unlock-btn-repo', yearlySteps['report']);
+
+        const apprNotice = document.getElementById('approvalNoticeBox');
+        if (res.isApprovalDone) {
+          apprNotice.classList.remove('d-none');
+          apprNotice.classList.add('d-flex');
+        } else {
+          apprNotice.classList.add('d-none');
+          apprNotice.classList.remove('d-flex');
+        }
+
+        renderExpenseRowsForActual(res.masterProcureItems);
+        renderExistingMonthFiles(res.existingMonthFiles || []); // แสดงไฟล์เดิมของเดือนนี้
+        calcRealtimeActualStatus();
+
+        document.getElementById('planNotice').innerText = res.isPlanFound ? '✔️ มีแผนงานล่วงหน้าของเดือนนี้' : '⚠️ ยังไม่มีการกรอกแผนล่วงหน้าของเดือนนี้';
+
+        if (statusEl) {
+          statusEl.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i>พร้อมกรอก</span>';
+        }
+      })
+      .withFailureHandler(err => {
+        if (statusEl) {
+          statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle-fill me-1"></i>โหลดไม่สำเร็จ</span>';
+        }
+      })
+      .getProjectMonthlyContext(y, actY, r, m);
+  }
+
+  function applySoftLockStep(prefix, obj, inputId, badgeId, btnId, completedMonthStr) {
+    document.getElementById(`b-${prefix}-pp`).innerText = `แผนสะสมเดิม: ${obj.prevPlan.toFixed(2)}%`;
+    document.getElementById(`b-${prefix}-ap`).innerText = `ผลสะสมเดิม: ${obj.prevAct.toFixed(2)}%`;
+    document.getElementById(`b-${prefix}-cp`).innerText = `แผนเดือนนี้: ${obj.curPlan.toFixed(2)}%`;
+
+    const doneBadge = document.getElementById(`b-${prefix}-done`);
+    const lockBadge = document.getElementById(badgeId);
+    const unlockBtn = document.getElementById(btnId);
+    const inputElem = document.getElementById(inputId);
+
+    if (completedMonthStr || obj.prevAct >= 100) {
+      if (doneBadge) doneBadge.classList.remove('d-none');
+      if (lockBadge) {
+        lockBadge.innerHTML = `✔️ รายการนี้ดำเนินการครบถ้วนแล้วเมื่อ: <strong>${completedMonthStr || 'เดือนก่อนหน้า'}</strong>`;
+      }
+      if (inputElem) {
+        inputElem.disabled = true;
+        inputElem.classList.add('bg-light');
+      }
+      if (unlockBtn) unlockBtn.classList.remove('d-none');
+    } else {
+      if (doneBadge) doneBadge.classList.add('d-none');
+      if (lockBadge) lockBadge.innerHTML = '';
+      if (inputElem) {
+        inputElem.disabled = false;
+        inputElem.classList.remove('bg-light');
+      }
+      if (unlockBtn) unlockBtn.classList.add('d-none');
+    }
+  }
+
+  function unlockStep(stepKey) {
+    const inputMap = { draft: 'actDraft', appr: 'actApproval', exec: 'actExecute', disb: 'actDisburse', repo: 'actReport' };
+    const elemId = inputMap[stepKey];
+    if (elemId) {
+      const elem = document.getElementById(elemId);
+      elem.disabled = false;
+      elem.focus();
+      Swal.fire({ icon: 'info', title: 'ปลดล็อกแล้ว', text: 'คุณสามารถแก้ไขข้อมูลขั้นตอนนี้ได้ในเดือนนี้', timer: 1500, showConfirmButton: false });
+    }
+  }
+
+  function renderExpenseRowsForActual(items) {
+    const container = document.getElementById('expenseListContainer');
+    container.innerHTML = '';
+
+    if (!items || items.length === 0) {
+      container.innerHTML = '<div class="alert alert-secondary text-center py-3 mb-0 small">ยังไม่มีรายการจัดซื้อจัดจ้างในแผนงานโครงการนี้ (กรุณาไปเพิ่มที่แท็บ "วางแผนโครงการ")</div>';
+      calcTotalMonthlyExp();
+      return;
+    }
+
+    items.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.className = 'expense-row row g-1 align-items-start text-center mb-2';
+      
+      const pastPaid = item.pastPaidAcc || 0;
+      const fileInputId = 'exp_file_' + idx;
+      const fileLabelId = 'exp_label_' + idx;
+      const previewBtnId = 'exp_prev_' + idx;
+      const thisMonthFormatted = item.thisMonthAmount ? Number(item.thisMonthAmount).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '';
+      
+      const docLink = item.docUrl ? `<a href="${item.docUrl}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.72rem;" title="เปิดดูเอกสารที่เคยแนบ"><i class="bi bi-eye"></i> ดูไฟล์</a>` : '';
+
+      let lastPaidSubtext = '';
+      if (pastPaid >= item.approvedBudget && item.approvedBudget > 0) {
+        lastPaidSubtext = `<span class="badge bg-success-subtle text-success border border-success-subtle d-block py-0 mt-1" style="font-size: 0.65rem; font-weight: normal;">✔️ ครบยอดแล้ว</span>`;
+      } else if (item.lastPaidMonth) {
+        let shortMonth = item.lastPaidMonth.replace('25', '');
+        let shortAmt = Number(item.lastPaidAmount).toLocaleString('en-US', { maximumFractionDigits: 0 });
+        const tooltip = item.lastUpdatedAt ? `title="บันทึกล่าสุดเมื่อ: ${item.lastUpdatedAt} (ยอด ${Number(item.lastPaidAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })} บ.)"` : '';
+        lastPaidSubtext = `<small class="text-primary d-block text-truncate mt-1" style="font-size: 0.68rem; cursor: help;" ${tooltip}>🕒 ${shortMonth} (+${shortAmt} บ.)</small>`;
+      } else {
+        lastPaidSubtext = `<small class="text-muted d-block text-truncate mt-1" style="font-size: 0.68rem;">🕒 ยังไม่เคยเบิก</small>`;
+      }
+
+      div.innerHTML = `
+        <div class="col-md-1 pt-1" style="max-width: 40px;">
+          <span class="badge bg-secondary">${idx + 1}</span>
+        </div>
+        <div class="col-md text-start ps-2">
+          <input type="text" class="form-control form-control-sm exp-name bg-light py-1" value="${item.name}" readonly title="${item.name}">
+        </div>
+        <div class="col-auto" style="width: 125px;">
+          <input type="text" class="form-control form-control-sm exp-appr-display bg-light text-end py-1" value="${Number(item.approvedBudget).toLocaleString('en-US', { minimumFractionDigits: 2 })}" readonly title="วงเงินที่ขออนุมัติไว้">
+          <input type="hidden" class="exp-appr" value="${item.approvedBudget}">
+        </div>
+        <div class="col-auto" style="width: 140px;">
+          <input type="text" class="form-control form-control-sm exp-past-paid-display bg-light text-end py-1" value="${Number(pastPaid).toLocaleString('en-US', { minimumFractionDigits: 2 })}" readonly title="ยอดที่เคยเบิกจ่ายสะสมเดิมก่อนเดือนนี้">
+          <input type="hidden" class="exp-past-paid" value="${pastPaid}">
+          ${lastPaidSubtext}
+        </div>
+        <div class="col-auto" style="width: 125px;">
+          <input type="text" class="form-control form-control-sm exp-amt text-end py-1" placeholder="0.00" value="${thisMonthFormatted}" oninput="formatCurrencyInput(this); calcTotalMonthlyExp();">
+        </div>
+        <div class="col-auto text-center pt-1" style="width: 55px;">
+          <input class="form-check-input exp-chk-inspect mb-0" type="checkbox" ${item.isInspected ? 'checked' : ''} title="ตรวจรับแล้ว">
+          <span class="chk-sublabel text-muted d-block" style="font-size: 0.68rem;">ตรวจรับ</span>
+        </div>
+        <div class="col-auto text-center pt-1" style="width: 55px;">
+          <input class="form-check-input exp-chk-disb mb-0" type="checkbox" ${item.isDisbursed ? 'checked' : ''} title="วางฎีกาแล้ว">
+          <span class="chk-sublabel text-primary d-block" style="font-size: 0.68rem;">วางฎีกา</span>
+        </div>
+        <div class="col-auto text-center d-flex align-items-center justify-content-center gap-1 pt-1" style="width: 140px;">
+          <label for="${fileInputId}" class="custom-file-upload mb-0 text-truncate" style="max-width: 95px; font-size: 0.72rem;" id="${fileLabelId}" title="คลิกเพื่อแนบไฟล์ PDF หลักฐานตรวจรับ/วางฎีกา">
+            <i class="bi bi-file-earmark-pdf"></i> แนบ PDF
+          </label>
+          <input type="file" id="${fileInputId}" class="exp-file d-none" accept=".pdf,application/pdf" onchange="updateFileLabel(this, '${fileLabelId}', '${previewBtnId}')">
+          <input type="hidden" class="exp-existing-doc" value="${item.docUrl || ''}">
+          <button type="button" id="${previewBtnId}" class="btn btn-sm btn-outline-info py-0 px-1 d-none" style="font-size: 0.7rem;" title="ดูไฟล์ตัวอย่างที่เพิ่งเลือก"><i class="bi bi-eye"></i></button>
+          ${docLink}
+        </div>
+      `;
+      container.appendChild(div);
+    });
+    calcTotalMonthlyExp();
+  }
+
+  function updateFileLabel(input, labelId, previewBtnId) {
+    const label = document.getElementById(labelId);
+    const prevBtn = document.getElementById(previewBtnId);
+
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0];
+      if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+        Swal.fire({ icon: 'error', title: 'ไฟล์ไม่ถูกต้อง', text: 'กรุณาแนบไฟล์เอกสารหลักฐานเป็น PDF เท่านั้น' });
+        input.value = '';
+        return;
+      }
+
+      label.innerHTML = `<i class="bi bi-file-earmark-pdf-fill text-danger"></i> <span class="text-truncate" style="max-width: 70px;">${file.name}</span>`;
+      label.className = 'custom-file-upload mb-0 border-danger text-danger bg-white';
+      
+      if (prevBtn) {
+        prevBtn.classList.remove('d-none');
+        prevBtn.onclick = function() {
+          const blobUrl = URL.createObjectURL(file);
+          window.open(blobUrl, '_blank');
+        };
+      }
+    }
+  }
+
+  function calcTotalMonthlyExp() {
+    let totalAppr = 0, totalPast = 0, totalThisMonth = 0;
+
+    document.querySelectorAll('.expense-row').forEach(row => {
+      totalAppr += Number(row.querySelector('.exp-appr')?.value) || 0;
+      totalPast += Number(row.querySelector('.exp-past-paid')?.value) || 0;
+      totalThisMonth += getCleanNumber(row.querySelector('.exp-amt')?.value);
+    });
+
+    const totalAccCurrent = totalPast + totalThisMonth;
+    const totalRemaining = totalAppr - totalAccCurrent;
+
+    document.getElementById('totApprovedLabel').innerText = totalAppr.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    document.getElementById('totPastPaidLabel').innerText = totalPast.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    document.getElementById('totThisMonthLabel').innerText = totalThisMonth.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    document.getElementById('totAccCurrentLabel').innerText = totalAccCurrent.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    document.getElementById('totRemainingLabel').innerText = totalRemaining.toLocaleString('en-US', { minimumFractionDigits: 2 });
+  }
+
+  function calcRealtimeActualStatus() {
+    if (!currentContextData) return;
+    const w = currentContextData.stepWeights || { draft: 0.05, approval: 0.05, execute: 0.75, disburse: 0.05, report: 0.10 };
+    
+    const draftAct = Number(document.getElementById('actDraft').value) || 0;
+    const apprAct = Number(document.getElementById('actApproval').value) || 0;
+    const execAct = Number(document.getElementById('actExecute').value) || 0;
+    const disbAct = Number(document.getElementById('actDisburse').value) || 0;
+    const repoAct = Number(document.getElementById('actReport').value) || 0;
+
+    const thisMonthActWeighted = (draftAct * w.draft) + (apprAct * w.approval) + (execAct * w.execute) + (disbAct * w.disburse) + (repoAct * w.report);
+    const totalAccAct = currentContextData.pastActualProgressAcc + thisMonthActWeighted;
+
+    const steps = currentContextData.steps;
+    const planAcc = (steps.draft.prevPlan + steps.draft.curPlan) * w.draft +
+                    (steps.approval.prevPlan + steps.approval.curPlan) * w.approval +
+                    (steps.execute.prevPlan + steps.execute.curPlan) * w.execute +
+                    (steps.disburse.prevPlan + steps.disburse.curPlan) * w.disburse +
+                    (steps.report.prevPlan + steps.report.curPlan) * w.report;
+
+    const diff = Number((totalAccAct - planAcc).toFixed(2));
+    const alertBox = document.getElementById('realtimeStatusAlert');
+    const statusText = document.getElementById('realtimeStatusText');
+    const diffBadge = document.getElementById('realtimeDiffBadge');
+    const reqLabel = document.getElementById('delayRequiredText');
+    const submitBtn = document.getElementById('actSubmitBtn');
+
+    if (totalAccAct > 100) {
+      alertBox.style.background = '#fee2e2';
+      alertBox.style.borderColor = '#fecaca';
+      statusText.innerHTML = `<span class="text-danger fw-bold">❌ ผลงานสะสมรวมเกิน 100% (${totalAccAct.toFixed(2)}%) ไม่สามารถบันทึกได้</span>`;
+      diffBadge.className = 'badge bg-danger fs-6';
+      diffBadge.innerText = 'OVER 100%';
+      if (submitBtn) submitBtn.disabled = true;
+      return;
+    } else {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+
+    if (diff >= 0) {
+      alertBox.style.background = '#d1fae5';
+      alertBox.style.borderColor = '#a7f3d0';
+      statusText.innerHTML = `<span class="text-success">🟢 เดือนนี้ผลงานดำเนินงานเร็วกว่า/ตามแผน</span> (ผลสะสม ${totalAccAct.toFixed(2)}% vs แผนสะสม ${planAcc.toFixed(2)}%)`;
+      diffBadge.className = 'badge bg-success fs-6';
+      diffBadge.innerText = `+${diff}%`;
+      reqLabel.classList.add('d-none');
+    } else {
+      alertBox.style.background = '#fee2e2';
+      alertBox.style.borderColor = '#fecaca';
+      statusText.innerHTML = `<span class="text-danger">🔴 เดือนนี้ผลงานดำเนินงานล่าช้ากว่าแผน</span> (ผลสะสม ${totalAccAct.toFixed(2)}% vs แผนสะสม ${planAcc.toFixed(2)}%)`;
+      diffBadge.className = 'badge bg-danger fs-6';
+      diffBadge.innerText = `${diff}%`;
+      reqLabel.classList.remove('d-none');
+    }
+  }
+
+  async function handleActualSubmit(e) {
+    e.preventDefault();
+
+    const summary = document.getElementById('actSummary').value.trim();
+    if (!summary) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'กรุณาระบุสรุปผลการดำเนินงาน',
+        text: 'โปรดกรอกสรุปผลการดำเนินงานประจำเดือนก่อนทำการบันทึกข้อมูล',
+        confirmButtonColor: '#f59e0b'
+      });
+      document.getElementById('actSummary').focus();
+      return;
+    }
+
+    const diffText = document.getElementById('realtimeDiffBadge').innerText;
+    const delayReason = document.getElementById('actDelayReason').value.trim();
+    if (diffText.startsWith('-') && !delayReason) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'กรุณาระบุสาเหตุความล่าช้า',
+        text: 'ผลการดำเนินงานในเดือนนี้ล่าช้ากว่าแผนงานที่กำหนด กรุณาระบุสาเหตุและแนวทางแก้ไขก่อนบันทึก',
+        confirmButtonColor: '#f59e0b'
+      });
+      document.getElementById('actDelayReason').focus();
+      return;
+    }
+
+    const btn = document.getElementById('actSubmitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>กำลังบันทึก...';
+
+    Swal.fire({
+      title: 'กำลังบันทึก/แก้ไขข้อมูล...',
+      text: 'กรุณารอสักครู่ กำลังประมวลผลข้อมูล',
+      allowOutsideClick: false,
+      didOpen: () => { Swal.showLoading(); }
+    });
+
+    const payload = {
+      refId: document.getElementById('actRefId').value,
+      fiscalYear: document.getElementById('actYear').value,
+      actualYear: document.getElementById('actActualYear').value,
+      month: document.getElementById('actMonth').value,
+      projectStatus: document.getElementById('actProjectStatus').value,
+      submitterEmail: document.getElementById('actSubmitterEmail').value,
+      draftActual: document.getElementById('actDraft').value,
+      approvalActual: document.getElementById('actApproval').value,
+      executeActual: document.getElementById('actExecute').value,
+      disburseActual: document.getElementById('actDisburse').value,
+      reportActual: document.getElementById('actReport').value,
+      delayReason: delayReason,
+      summary: summary
+    };
+
+    const expenseItems = [];
+    const rows = document.querySelectorAll('.expense-row');
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const name = r.querySelector('.exp-name').value;
+      const approvedBudget = Number(r.querySelector('.exp-appr').value) || 0;
+      const amount = getCleanNumber(r.querySelector('.exp-amt').value);
+      const isInspected = r.querySelector('.exp-chk-inspect').checked;
+      const isDisbursed = r.querySelector('.exp-chk-disb').checked;
+      const existingDocUrl = r.querySelector('.exp-existing-doc')?.value || '';
+      const fileInput = r.querySelector('.exp-file');
+      
+      let fileData = null;
+      if (fileInput && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const b64 = await toBase64(file);
+        fileData = { name: file.name, mimeType: file.type, base64: b64 };
+      }
+      if (name && (approvedBudget || amount || isInspected || isDisbursed || fileData)) {
+        expenseItems.push({ name, approvedBudget, amount: amount || 0, isInspected, isDisbursed, fileData, existingDocUrl });
+      }
+    }
+
+    const generalFiles = [];
+    for (let i = 0; i < stagedFilesQueue.length; i++) {
+      const item = stagedFilesQueue[i];
+      const b64 = await toBase64(item.file);
+      generalFiles.push({ name: item.file.name, mimeType: item.file.type, base64: b64, docType: item.file.type.includes('image') ? 'รูปภาพ' : 'รายงาน' });
+    }
+
+    google.script.run
+      .withSuccessHandler(res => {
+        Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, confirmButtonColor: '#0d6efd' });
+        btn.disabled = false;
+        btn.innerHTML = 'บันทึก / แก้ไขผลงานรายเดือน';
+        resetFileQueue();
+        checkMonthlyContext();
+        loadActualTrackingMatrix();
+        loadDashboard();
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false;
+        btn.innerHTML = 'บันทึก / แก้ไขผลงานรายเดือน';
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message, confirmButtonColor: '#dc3545' });
+      })
+      .submitMonthlyActual(payload, expenseItems, generalFiles);
+  }
+</script>

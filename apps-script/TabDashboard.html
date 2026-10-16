@@ -1,0 +1,244 @@
+<div class="tab-pane fade show active" id="dashboardTab">
+  <!-- Heading แสดงปีงบประมาณตามดรอปดาวน์ สำหรับแสดงผล/พิมพ์/แคปหน้าจอ -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h5 class="fw-bold text-primary mb-0" id="dashMainHeading">
+        <i class="bi bi-bar-chart-line-fill me-2"></i>Mahidol University Sustainability Action Tracker ปีงบประมาณ 2569 (2026)
+      </h5>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-4 card-box bg-white">
+    <!-- แถบหัวตัวกรองพร้อมป้ายแสดงสถานะการโหลดข้อมูลแดชบอร์ด -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 pb-2 border-bottom">
+      <div class="fw-bold text-secondary">
+        <i class="bi bi-funnel-fill me-1 text-primary"></i> ตัวกรองข้อมูลแดชบอร์ด
+      </div>
+      <div id="dashLoadingStatus" class="mt-1 mt-md-0">
+        <span class="badge bg-light text-muted border py-1 px-2">
+          <i class="bi bi-clock me-1"></i> พร้อมแสดงผล
+        </span>
+      </div>
+    </div>
+
+    <div class="row g-3 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label fw-bold">ปีงบประมาณ</label>
+        <select id="dashYear" class="form-select" onchange="loadMasterAndDashboard()"></select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-bold">เลือกหน่วยงาน</label>
+        <select id="dashDept" class="form-select" onchange="onDashDeptChange()">
+          <option value="ALL">-- ทุกหน่วยงาน --</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold">เลือกรายการโครงการ</label>
+        <select id="dashRefId" class="form-select" onchange="loadDashboard()">
+          <option value="ALL">-- แสดงภาพรวมทั้งหมด --</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-bold text-primary">ประจำเดือนตัดยอด (As-of)</label>
+        <select id="dashAsOfMonth" class="form-select border-primary" onchange="loadDashboard()">
+          <option value="ALL">-- ข้อมูลล่าสุดทั้งหมด --</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-4 card-box bg-white border-start border-primary border-4 d-none" id="teamInfoBox">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="fw-bold text-primary mb-0"><i class="bi bi-people-fill me-1"></i> ทีมผู้รับผิดชอบโครงการ</h6>
+      <button class="btn btn-sm btn-outline-secondary" onclick="resetToAllDashboard()"><i class="bi bi-arrow-left me-1"></i>กลับสู่ภาพรวมทั้งหมด</button>
+    </div>
+    <div class="row g-2 small">
+      <div class="col-md-4" id="teamPrimary"></div>
+      <div class="col-md-4" id="teamCo1"></div>
+      <div class="col-md-4" id="teamCo2"></div>
+    </div>
+  </div>
+
+  <!-- Row 1: Operations -->
+  <h6 class="fw-bold text-secondary mb-2"><i class="bi bi-kanban me-1"></i> สถานะการดำเนินงาน (Project Progress)</h6>
+  <div class="row g-2 mb-4">
+    <div class="col-xl col-md-4 col-sm-6">
+      <div class="card p-3 card-box bg-white border-start border-dark border-4 h-100">
+        <small class="text-muted fw-bold" id="cardTitle1">โครงการทั้งหมด</small>
+        <h4 class="fw-bold text-dark mb-0" id="kpiVal1">0 โครงการ</h4>
+        <small class="text-muted" style="font-size: 0.72rem;" id="kpiSub1">(Total Projects)</small>
+      </div>
+    </div>
+    <div class="col-xl col-md-4 col-sm-6">
+      <div class="card p-3 card-box bg-white border-start border-primary border-4 h-100">
+        <small class="text-muted fw-bold" id="cardTitle2">ผลการดำเนินงานภาพรวม</small>
+        <h4 class="fw-bold text-primary mb-0" id="kpiVal2">0.00%</h4>
+        <small class="text-muted" style="font-size: 0.72rem;" id="kpiSub2">(แผนสะสม: 0.00%)</small>
+      </div>
+    </div>
+    <div class="col-xl col-md-4 col-sm-6">
+      <div class="card p-3 card-box bg-white border-start border-success border-4 h-100">
+        <small class="text-muted fw-bold" id="cardTitle3">แล้วเสร็จ 100%</small>
+        <h4 class="fw-bold text-success mb-0" id="kpiVal3">0 โครงการ</h4>
+        <small class="text-muted" style="font-size: 0.72rem;" id="kpiSub3">(Completed)</small>
+      </div>
+    </div>
+    <div class="col-xl col-md-6 col-sm-6">
+      <div class="card p-3 card-box bg-white border-start border-info border-4 h-100">
+        <small class="text-muted fw-bold" id="cardTitle4">ดำเนินการตามแผน</small>
+        <h4 class="fw-bold text-info mb-0" id="kpiVal4">0 โครงการ</h4>
+        <small class="text-muted" style="font-size: 0.72rem;" id="kpiSub4">(On Track)</small>
+      </div>
+    </div>
+    <div class="col-xl col-md-6 col-sm-6">
+      <div class="card p-3 card-box bg-white border-start border-danger border-4 h-100">
+        <small class="text-muted fw-bold" id="cardTitle5">ล่าช้ากว่าแผน</small>
+        <h4 class="fw-bold text-danger mb-0" id="kpiVal5">0 โครงการ</h4>
+        <small class="text-muted" style="font-size: 0.72rem;" id="kpiSub5">(Delayed)</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Finance -->
+  <h6 class="fw-bold text-secondary mb-2"><i class="bi bi-cash-stack me-1"></i> ภาพรวมงบประมาณโครงการ (Financial Overview)</h6>
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card p-3 card-box bg-white border-start border-dark border-4">
+        <small class="text-muted fw-bold" id="bgtCardTitle1">กรอบงบประมาณรวมทั้งสิ้น</small>
+        <h4 class="fw-bold text-dark mb-0" id="kpiMasterBgt">0.00 บาท</h4>
+        <small class="text-muted" style="font-size: 0.75rem;" id="bgtCardSub1">(Master Budget: 100%)</small>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3 card-box bg-white border-start border-danger border-4">
+        <small class="text-muted fw-bold" id="bgtCardTitle2">งบประมาณเบิกจ่ายจริงรวม</small>
+        <h4 class="fw-bold text-danger mb-0" id="kpiSpentBgt">0.00 บาท</h4>
+        <small class="text-danger fw-bold" style="font-size: 0.75rem;" id="bgtCardSub2">(เบิกจ่ายแล้ว 0.00%)</small>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3 card-box bg-white border-start border-success border-4">
+        <small class="text-muted fw-bold" id="bgtCardTitle3">งบประมาณคงเหลือจากการดำเนินงาน</small>
+        <h4 class="fw-bold text-success mb-0" id="kpiSurplus">0.00 บาท</h4>
+        <small class="text-success fw-bold" style="font-size: 0.75rem;" id="bgtCardSub3">(คงเหลือ 0.00%)</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts & Right Card -->
+  <div class="row mb-4">
+    <div class="col-lg-8">
+      <div class="card p-4 card-box bg-white mb-4">
+        <h6 class="fw-bold mb-3 text-secondary">📈 S-Curve ความคืบหน้าภาพรวมสะสม แผน vs ผล (%)</h6>
+        <div class="chart-container-fixed" style="height: 360px !important; position: relative;">
+          <canvas id="sCurveProgressChart"></canvas>
+        </div>
+      </div>
+      <div class="card p-4 card-box bg-white mb-4">
+        <h6 class="fw-bold mb-3 text-secondary">💰 การเบิกจ่ายงบประมาณสะสม (บาท)</h6>
+        <div class="chart-container-fixed" style="height: 320px; position: relative;">
+          <canvas id="sCurveExpenseChart"></canvas>
+        </div>
+      </div>
+      <div class="card p-4 card-box bg-white" id="sdgChartCard">
+        <h6 class="fw-bold mb-3 text-secondary">🎯 จำนวนโครงการที่ตอบโจทย์เป้าหมายการพัฒนาที่ยั่งยืน (SDGs Coverage)</h6>
+        <div style="position: relative; min-height: 320px; width: 100%;">
+          <canvas id="sdgChart"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <!-- แสดงเมื่อดูภาพรวม ALL -->
+      <div id="overviewRightCards">
+        <div class="card p-3 card-box bg-white border-start border-info border-4 mb-3">
+          <h6 class="fw-bold text-primary mb-2"><i class="bi bi-file-earmark-ruled-fill me-1"></i> เอกสารอ้างอิงโครงการใหญ่ (งบหลัก/เจียดจ่าย)</h6>
+          <div id="masterDocsListContent" style="max-height: 210px; overflow-y: auto;">
+            <small class="text-muted italic">กำลังโหลดเอกสาร...</small>
+          </div>
+        </div>
+
+        <div class="card p-3 card-box bg-white border-start border-success border-4 mb-3">
+          <h6 class="fw-bold text-success mb-2"><i class="bi bi-trophy-fill text-warning me-1"></i> โครงการที่ดำเนินการแล้วเสร็จ (100%)</h6>
+          <div id="completedListContent" style="max-height: 160px; overflow-y: auto;"></div>
+        </div>
+
+        <div class="card p-3 card-box bg-white border-start border-primary border-4 mb-3">
+          <h6 class="fw-bold text-primary mb-2"><i class="bi bi-check-circle-fill text-success me-1"></i> โครงการที่ดำเนินการตามแผน</h6>
+          <div id="onTrackListContent" style="max-height: 160px; overflow-y: auto;"></div>
+        </div>
+
+        <div class="card p-3 card-box bg-white border-start border-danger border-4">
+          <h6 class="fw-bold text-danger mb-2"><i class="bi bi-clock-history me-1"></i> โครงการที่ยังไม่ส่งรายงานเดือนนี้</h6>
+          <div id="pendingListContent" style="max-height: 160px; overflow-y: auto;"></div>
+        </div>
+      </div>
+
+      <!-- แสดงเมื่อเลือกดูเฉพาะโครงการย่อย (Single Project) -->
+      <div class="card p-4 card-box bg-white d-none" id="singleProjectFilesCard">
+        <div class="card p-3 card-box bg-light border mb-3">
+          <h6 class="fw-bold mb-2 text-primary"><i class="bi bi-bullseye text-danger me-1"></i> เป้าหมาย SDGs ของโครงการนี้</h6>
+          <div id="singleProjectSdgContainer" style="max-height: 200px; overflow-y: auto;">
+            <small class="text-muted">กำลังโหลดข้อมูล SDGs...</small>
+          </div>
+        </div>
+
+        <h6 class="fw-bold mb-3 text-secondary"><i class="bi bi-camera-fill text-primary me-1"></i> ภาพถ่ายกิจกรรมล่าสุด</h6>
+        <div id="latestImageContainer" class="mb-3 text-center">
+          <p class="text-muted small py-2 border rounded bg-light mb-0">ไม่มีรูปภาพกิจกรรมในรอบนี้</p>
+        </div>
+
+        <h6 class="fw-bold mb-2 text-secondary"><i class="bi bi-chat-left-text-fill text-success me-1"></i> สรุปผลงานประจำเดือน</h6>
+        <div class="p-2 mb-3 border rounded bg-light small" id="singleMonthlySummaryBox" style="font-style: italic; color: #334155;">
+          - ยังไม่มีสรุปผลงานประจำเดือน -
+        </div>
+
+        <h6 class="fw-bold mb-3 text-secondary"><i class="bi bi-folder-fill text-primary me-1"></i> เอกสารและรายงานทั้งหมด</h6>
+        <div id="singleFilesContent" style="max-height: 200px; overflow-y: auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Purchasing Hub -->
+  <div class="card p-4 card-box bg-white mb-4 d-none" id="purchasingSection">
+    <h6 class="fw-bold text-success mb-3"><i class="bi bi-cart-check-fill me-2"></i>รายการจัดซื้อจัดจ้าง, ตรวจรับ & วางฎีกาของโครงการ</h6>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+        <thead class="table-light">
+          <tr>
+            <th>เดือน/ปี</th>
+            <th>รายการจัดซื้อ/จัดจ้าง</th>
+            <th>วงเงินอนุมัติ (บาท)</th>
+            <th>จ่ายจริง (บาท)</th>
+            <th>ส่วนต่างประหยัดได้ (บาท)</th>
+            <th>สถานะตรวจรับ</th>
+            <th>สถานะวางฎีกา</th>
+            <th>เอกสารตรวจรับ</th>
+          </tr>
+        </thead>
+        <tbody id="projectExpensesTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Delay Table -->
+  <div class="card p-4 card-box bg-white" id="delaySection">
+    <h6 class="fw-bold text-danger mb-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>รายการโครงการที่ล่าช้ากว่าแผน & สาเหตุ (คลิกชื่อเพื่อดูรายละเอียด)</h6>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+        <thead class="table-light">
+          <tr>
+            <th>รหัส</th>
+            <th>ชื่อโครงการ</th>
+            <th>แผนสะสม</th>
+            <th>ผลจริงสะสม</th>
+            <th>ส่วนต่าง (%)</th>
+            <th>สถานะ</th>
+            <th>สาเหตุความล่าช้าที่ระบุ</th>
+          </tr>
+        </thead>
+        <tbody id="delayTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>

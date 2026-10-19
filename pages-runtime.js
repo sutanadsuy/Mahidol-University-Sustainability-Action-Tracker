@@ -15,6 +15,12 @@ let pagesCachedSheets;
 let pagesExpiresAt = 0;
 let pagesLoading;
 
+function pagesRefreshData() {
+  pagesCachedSheets = null;
+  pagesExpiresAt = 0;
+  if (typeof loadMasterAndDashboard === 'function') loadMasterAndDashboard();
+}
+
 function pagesFormatDate(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '';

@@ -21,6 +21,8 @@
 
 รัน `node build-pages.cjs` เพื่อสร้างเว็บใน `docs/` แล้วรัน `node pages-preview.cjs` เพื่อทดลองที่ <http://127.0.0.1:4174/> หน้าเว็บนี้อ่านข้อมูลล่าสุดจากชีตผ่าน Google Visualization โดยตรงเมื่อเปิดเว็บ แสดงแดชบอร์ด รายละเอียดโครงการ และตารางแผนเทียบผล แต่ไม่มีการบันทึกหรืออัปโหลด
 
+ฟังก์ชันคำนวณรายงานใน `docs/backend-readonly.js` สร้างจากไฟล์ `.gs` ชุดเดียวกับ Apps Script ทุกครั้งที่รัน `node build-pages.cjs` หน้า GitHub จึงใช้สูตรคำนวณเดียวกัน ปุ่ม **บันทึก/แก้ไขข้อมูล** เปิดเว็บ Apps Script เดิมในแท็บใหม่ ซึ่งทำงานกับชีตและ Drive ในสิทธิ์ของ Google หลังบันทึกแล้วกลับมาที่ Pages และกด **รีเฟรชข้อมูล** การเปิดเว็บ Apps Script ต้องลงชื่อเข้าใช้ และโปรเจ็กต์นั้นต้องอัปเดตเป็นโค้ดชุดล่าสุดก่อนฟังก์ชันบันทึกจะใช้ได้
+
 การเผยแพร่ใช้ GitHub repository นี้ โดยตั้งค่า **Settings → Pages → Build and deployment → Deploy from a branch → main → /docs → Save** URL ที่ได้คือ <https://sutanadsuy.github.io/Mahidol-University-Sustainability-Action-Tracker/> การอ่านข้อมูลบน Pages จะทำงานได้ตราบที่ Google Sheet อนุญาตให้ผู้เข้าชมอ่านข้อมูลผ่านลิงก์สาธารณะ
 
 GitHub Pages ไม่สามารถรัน `.gs` หรือเขียนข้อมูลลง Sheets/Drive ได้ หากต้องการหน้าบันทึกข้อมูล ให้ใช้เว็บแอป Google Apps Script ด้านบน

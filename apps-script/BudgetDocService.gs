@@ -1,6 +1,6 @@
 // ค้นหาชีทเอกสารงบประมาณโครงการใหญ่แบบยืดหยุ่น (ป้องกันปัญหาชื่อชีทมี space ต่อท้าย)
-function getMasterBudgetDocSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+function getMasterBudgetDocSheet_() {
+  const ss = getAppSpreadsheet();
   let sheet = ss.getSheetByName('Master_Budget_Documents');
   if (!sheet) {
     const sheets = ss.getSheets();
@@ -14,14 +14,15 @@ function getMasterBudgetDocSheet() {
 }
 
 function uploadMasterBudgetDoc(payload, fileObj) {
-  let sheet = getMasterBudgetDocSheet();
+  requireAdminAccess_();
+  let sheet = getMasterBudgetDocSheet_();
   if (!sheet) {
-    sheet = getOrCreateSheet('Master_Budget_Documents', [
+    sheet = getOrCreateSheet_('Master_Budget_Documents', [
       'Doc_ID', 'Fiscal_Year', 'Doc_Category', 'Doc_Name', 'File_Name', 
       'Doc_URL', 'Is_Latest', 'Uploaded_At', 'Uploaded_By', 'Priority'
     ]);
   }
-  const folder = getOrCreateFolder('MU_Sustainability_Master_Docs');
+  const folder = getOrCreateFolder_('MU_Sustainability_Master_Docs');
   const now = new Date();
   const user = Session.getActiveUser().getEmail() || 'Anonymous';
 
@@ -51,7 +52,7 @@ function uploadMasterBudgetDoc(payload, fileObj) {
 }
 
 function getMasterBudgetDocs(fiscalYear) {
-  const sheet = getMasterBudgetDocSheet();
+  const sheet = getMasterBudgetDocSheet_();
   if (!sheet) return [];
 
   const data = sheet.getDataRange().getValues();
@@ -91,8 +92,9 @@ function getMasterBudgetDocs(fiscalYear) {
 
 // ดึงเอกสารทั้งหมดสำหรับตาราง Admin
 function getAllMasterBudgetDocsForAdmin(fiscalYear) {
+  requireAdminAccess_();
   try {
-    const sheet = getMasterBudgetDocSheet();
+    const sheet = getMasterBudgetDocSheet_();
     if (!sheet) return [];
 
     const data = sheet.getDataRange().getValues();
@@ -134,7 +136,8 @@ function getAllMasterBudgetDocsForAdmin(fiscalYear) {
 
 // อัปเดตสถานะและ Priority
 function updateMasterBudgetDocStatus(docId, isActive, priorityVal) {
-  const sheet = getMasterBudgetDocSheet();
+  requireAdminAccess_();
+  const sheet = getMasterBudgetDocSheet_();
   if (!sheet) return { success: false, message: 'ไม่พบชีท Master_Budget_Documents' };
 
   const data = sheet.getDataRange().getValues();

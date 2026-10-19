@@ -1,5 +1,5 @@
-function getOrCreateSheet(sheetName, headers) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+function getOrCreateSheet_(sheetName, headers) {
+  const ss = getAppSpreadsheet();
   let sheet = ss.getSheetByName(sheetName);
   if (!sheet) sheet = ss.getSheets().find(s => s.getName().trim() === sheetName.trim());
   if (!sheet) {
@@ -12,14 +12,14 @@ function getOrCreateSheet(sheetName, headers) {
   return sheet;
 }
 
-function getOrCreateFolder(folderName) {
+function getOrCreateFolder_(folderName) {
   const folders = DriveApp.getFoldersByName(folderName);
   return folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
 }
 
-function saveActivityFile(fileObj, folderName) {
+function saveActivityFile_(fileObj, folderName) {
   try {
-    const folder = getOrCreateFolder(folderName || 'MU_Sustainability_Activity_Files');
+    const folder = getOrCreateFolder_(folderName || 'MU_Sustainability_Activity_Files');
     const decoded = Utilities.base64Decode(fileObj.base64.split(',')[1]);
     const blob = Utilities.newBlob(decoded, fileObj.mimeType, fileObj.name);
     return folder.createFile(blob).getUrl();

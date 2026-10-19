@@ -250,17 +250,7 @@
     const currentFY = String(document.getElementById('adminNewFiscalYear')?.value || document.getElementById('dashYear')?.value || '2569').trim();
     const query = (document.getElementById('adminSearchProjectInput')?.value || '').toLowerCase().trim();
 
-    if (!masterData || !masterData.projects || masterData.projects.length === 0) {
-      google.script.run.withSuccessHandler(data => {
-        masterData = data || { projects: [], departments: [], totalMasterBudget: 0 };
-        updateDeptDropdown();
-        renderDeptTable(masterData.departments);
-        filterAdminProjectTable();
-      }).getMasterLists(currentFY);
-      return;
-    }
-
-    let filtered = masterData.projects || [];
+    let filtered = masterData && masterData.projects ? masterData.projects : [];
     if (currentFY) {
       filtered = filtered.filter(p => String(p.fiscalYear).trim() === currentFY);
     }
@@ -272,7 +262,7 @@
       );
     }
     renderAdminProjectTable(filtered);
-    renderDeptTable(masterData.departments);
+    renderDeptTable(masterData && masterData.departments ? masterData.departments : []);
   }
 
   function handleAdminMasterSubmit(e) {

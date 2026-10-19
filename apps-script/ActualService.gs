@@ -1,5 +1,5 @@
 function getProjectMonthlyContext(fiscalYear, actualYear, refId, currentMonth) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getAppSpreadsheet();
   const sheet = ss.getSheetByName('Monthly_Progress');
   const expSheet = ss.getSheetByName('Expense_Items');
   const mProcSheet = ss.getSheetByName('Master_Procure_Plan');
@@ -212,12 +212,12 @@ function getProjectMonthlyContext(fiscalYear, actualYear, refId, currentMonth) {
 }
 
 function submitMonthlyActual(payload, expenseItems, generalFiles) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getAppSpreadsheet();
   const sheet = ss.getSheetByName('Monthly_Progress');
-  const expSheet = getOrCreateSheet('Expense_Items', ['Expense_ID', 'Category', 'Reference_ID', 'Fiscal_Year', 'Actual_Year', 'Month', 'Item_Name', 'Approved_Budget_THB', 'Amount_THB', 'Savings_THB', 'Is_Inspected', 'Is_Disbursed', 'Inspection_Doc_URL', 'Created_At']);
+  const expSheet = getOrCreateSheet_('Expense_Items', ['Expense_ID', 'Category', 'Reference_ID', 'Fiscal_Year', 'Actual_Year', 'Month', 'Item_Name', 'Approved_Budget_THB', 'Amount_THB', 'Savings_THB', 'Is_Inspected', 'Is_Disbursed', 'Inspection_Doc_URL', 'Created_At']);
   const fileSheet = ss.getSheetByName('File_Attachments');
   const prjSheet = ss.getSheetByName('Master_Projects');
-  const folder = getOrCreateFolder('MU_Sustainability_Attachments');
+  const folder = getOrCreateFolder_('MU_Sustainability_Attachments');
   const now = new Date();
   const user = payload.submitterEmail || Session.getActiveUser().getEmail() || 'Anonymous';
   
@@ -347,7 +347,7 @@ function submitMonthlyActual(payload, expenseItems, generalFiles) {
 
 // ฟังก์ชันลบไฟล์เอกสาร/รูปภาพออกจากชีทและ Drive
 function deleteAttachmentFile(fileRowId) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getAppSpreadsheet();
   const fileSheet = ss.getSheetByName('File_Attachments');
   if (!fileSheet) return { success: false, message: 'ไม่พบชีท File_Attachments' };
 

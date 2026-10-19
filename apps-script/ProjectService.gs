@@ -1,6 +1,6 @@
 function getInitialBootstrapData(fiscalYear) {
   const targetYear = String(fiscalYear || '2569').trim();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getAppSpreadsheet();
   const prjSheet = ss.getSheetByName('Master_Projects');
   const bgtSheet = ss.getSheetByName('Master_Budgets');
   const deptSheet = ss.getSheetByName('Master_Departments');
@@ -81,8 +81,9 @@ function getMasterLists(fiscalYear) {
 
 // บันทึกโครงการใหม่ หรืออัปเดตข้อมูลทับแถวเดิมหากมีอยู่แล้ว
 function addNewMasterItem(payload) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = getOrCreateSheet('Master_Projects', [
+  requireAdminAccess_();
+  const ss = getAppSpreadsheet();
+  const sheet = getOrCreateSheet_('Master_Projects', [
     'Project_ID', 'Fiscal_Year', 'Project_Name', 'Strategy', 'Responsible_Person', 
     'Department', 'Budget_Allocated', 'Weight_Percent', 'Start_Date', 'End_Date', 
     'Status', 'Primary_Email', 'Co_Name_1', 'Co_Email_1', 'Co_Name_2', 'Co_Email_2'
@@ -126,10 +127,10 @@ function addNewMasterItem(payload) {
 }
 
 function saveAnnualPlan(payloadList, projectTimeline, masterProcureItems, savingsReason, sdgAlignments) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getAppSpreadsheet();
   const sheet = ss.getSheetByName('Monthly_Progress');
   const prjSheet = ss.getSheetByName('Master_Projects');
-  const mProcSheet = getOrCreateSheet('Master_Procure_Plan', ['Plan_Item_ID', 'Category', 'Reference_ID', 'Fiscal_Year', 'Item_Name', 'Approved_Budget_THB', 'Savings_Reason', 'Created_At']);
+  const mProcSheet = getOrCreateSheet_('Master_Procure_Plan', ['Plan_Item_ID', 'Category', 'Reference_ID', 'Fiscal_Year', 'Item_Name', 'Approved_Budget_THB', 'Savings_Reason', 'Created_At']);
   const now = new Date();
   const user = projectTimeline.submitterEmail || Session.getActiveUser().getEmail() || 'Anonymous';
   
@@ -213,7 +214,7 @@ function saveAnnualPlan(payloadList, projectTimeline, masterProcureItems, saving
 }
 
 function getExistingProjectPlan(fiscalYear, refId) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getAppSpreadsheet();
   const sheet = ss.getSheetByName('Monthly_Progress');
   const prjSheet = ss.getSheetByName('Master_Projects');
   const mProcSheet = ss.getSheetByName('Master_Procure_Plan');

@@ -3,7 +3,7 @@ const DEFAULT_STEP_WEIGHTS = { draft: 0.05, approval: 0.05, execute: 0.75, disbu
 // Supports both earlier System_Settings layouts: draft=5 and weight_draft=0.05.
 function getStepWeights() {
   const weights = Object.assign({}, DEFAULT_STEP_WEIGHTS);
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('System_Settings');
+  const sheet = getAppSpreadsheet().getSheetByName('System_Settings');
   if (!sheet) return weights;
 
   const rows = sheet.getDataRange().getValues().slice(1);
@@ -25,6 +25,7 @@ function getStepWeights() {
 }
 
 function updateStepWeights(payload) {
+  requireAdminAccess_();
   const steps = Object.keys(DEFAULT_STEP_WEIGHTS);
   const values = {};
   steps.forEach(step => {
@@ -37,7 +38,7 @@ function updateStepWeights(payload) {
   const total = steps.reduce((sum, step) => sum + values[step], 0);
   if (Math.abs(total - 100) > 0.001) throw new Error('ผลรวมค่าน้ำหนักต้องเท่ากับ 100%');
 
-  const sheet = getOrCreateSheet('System_Settings', ['Key', 'Weight_Percent', 'Updated_At']);
+  const sheet = getOrCreateSheet_('System_Settings', ['Key', 'Weight_Percent', 'Updated_At']);
   const rows = sheet.getDataRange().getValues();
   const now = new Date();
   steps.forEach(step => {
@@ -67,10 +68,11 @@ function updateStepWeights(payload) {
 }
 
 function setMasterBudget(fiscalYear, totalBudget) {
+  requireAdminAccess_();
   const year = String(fiscalYear || '').trim();
   const budget = Number(totalBudget);
   if (!year || !Number.isFinite(budget) || budget < 0) throw new Error('ปีงบประมาณหรือวงเงินไม่ถูกต้อง');
-  const sheet = getOrCreateSheet('Master_Budgets', ['Fiscal_Year', 'Total_Budget_THB', 'Updated_At']);
+  const sheet = getOrCreateSheet_('Master_Budgets', ['Fiscal_Year', 'Total_Budget_THB', 'Updated_At']);
   const rows = sheet.getDataRange().getValues();
   let rowNumber = -1;
   for (let i = 1; i < rows.length; i++) {
@@ -86,10 +88,11 @@ function setMasterBudget(fiscalYear, totalBudget) {
 }
 
 function addDepartment(payload) {
+  requireAdminAccess_();
   const name = String(payload.deptName || '').trim();
   if (!name) throw new Error('กรุณาระบุชื่อหน่วยงาน');
   const requestedId = String(payload.deptId || '').trim();
-  const sheet = getOrCreateSheet('Master_Departments', ['Department_ID', 'Department_Name', 'Head_Name', 'Head_Email']);
+  const sheet = getOrCreateSheet_('Master_Departments', ['Department_ID', 'Department_Name', 'Head_Name', 'Head_Email']);
   const rows = sheet.getDataRange().getValues();
   let rowNumber = -1;
   for (let i = 1; i < rows.length; i++) {

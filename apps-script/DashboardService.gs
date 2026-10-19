@@ -1,6 +1,6 @@
 function getDashboardReport(fiscalYear, dept, refId, asOfMonthKey) {
   const targetFY = String(fiscalYear || '2569').trim();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getAppSpreadsheet();
   const progressSheet = ss.getSheetByName('Monthly_Progress');
   const fileSheet = ss.getSheetByName('File_Attachments');
   const prjSheet = ss.getSheetByName('Master_Projects');
@@ -484,7 +484,7 @@ function getDashboardReport(fiscalYear, dept, refId, asOfMonthKey) {
 
 // ฟังก์ชันดึงข้อมูลตารางเมทริกซ์ สรุปแผน vs ผล
 function getProjectYearlyMatrix(fiscalYear, refId) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getAppSpreadsheet();
   const sheet = ss.getSheetByName('Monthly_Progress');
   const data = sheet ? sheet.getDataRange().getValues().slice(1) : [];
   

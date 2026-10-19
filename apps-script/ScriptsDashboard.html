@@ -43,7 +43,7 @@
         }
       }
       
-      if (res.weights) {
+      if (res.weights && document.getElementById('wDraft')) {
         document.getElementById('wDraft').value = res.weights.draft;
         document.getElementById('wAppr').value = res.weights.approval;
         document.getElementById('wExec').value = res.weights.execute;
@@ -53,7 +53,8 @@
       }
 
       masterData = res.master || { projects: [], departments: [], totalMasterBudget: 0 };
-      document.getElementById('adminMasterBudgetVal').value = dataTotalFormat(masterData.totalMasterBudget);
+      const adminBudgetInput = document.getElementById('adminMasterBudgetVal');
+      if (adminBudgetInput) adminBudgetInput.value = dataTotalFormat(masterData.totalMasterBudget);
       
       updateDropdowns();
       updateMatrixRefDropdown();
@@ -147,7 +148,8 @@
     const year = document.getElementById('dashYear').value;
     google.script.run.withSuccessHandler(data => {
       masterData = data || { projects: [], departments: [], totalMasterBudget: 0 };
-      document.getElementById('adminMasterBudgetVal').value = dataTotalFormat(data.totalMasterBudget);
+      const adminBudgetInput = document.getElementById('adminMasterBudgetVal');
+      if (adminBudgetInput) adminBudgetInput.value = dataTotalFormat(data.totalMasterBudget);
       updateDropdowns();
       updateMatrixRefDropdown();
       updateDeptDropdown();

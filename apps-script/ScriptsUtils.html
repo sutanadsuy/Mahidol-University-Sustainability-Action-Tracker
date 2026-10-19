@@ -83,6 +83,7 @@
   function initPlanMonthDropdowns() {
     const sSel = document.getElementById('planStartMonth');
     const eSel = document.getElementById('planEndMonth');
+    if (!sSel || !eSel) return;
     sSel.innerHTML = calendarMonths.map(m => `<option value="${m.val}">${m.name}</option>`).join('');
     eSel.innerHTML = calendarMonths.map(m => `<option value="${m.val}">${m.name}</option>`).join('');
     sSel.value = 5;

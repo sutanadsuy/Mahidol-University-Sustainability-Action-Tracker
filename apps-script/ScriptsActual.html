@@ -14,6 +14,17 @@
     } catch (e) { return ''; }
   }
 
+  function findActiveAttachment(fileRowId) {
+    const id = String(fileRowId);
+    const history = currentContextData?.attachmentHistory || [];
+    return history.find(item => String(item.id) === id && item.status === 'active') ||
+      (currentContextData?.existingMonthFiles || []).find(item => String(item.id) === id) || null;
+  }
+
+  function selectedAttachmentMonth() {
+    return `${document.getElementById('actMonth').value} ${document.getElementById('actActualYear').value}`;
+  }
+
   function toggleActualMatrix() {
     const box = document.getElementById('collapseMatrixActual');
     const icon = document.getElementById('matrixToggleIcon');
@@ -169,9 +180,23 @@
           <div class="text-muted">${escapeActualHtml(item.month)} · อัปโหลด ${escapeActualHtml(item.uploadedAt || '-')} ${item.uploadedBy ? 'โดย ' + escapeActualHtml(item.uploadedBy) : ''}</div>
           ${status !== 'active' ? `<div class="text-muted">${status === 'replaced' ? 'แทนที่' : 'นำออก'} ${escapeActualHtml(item.actedAt || '-')} ${item.actedBy ? 'โดย ' + escapeActualHtml(item.actedBy) : ''}${replacement ? ' → ' + escapeActualHtml(replacement.name) : ''}</div>` : ''}
         </div>
-        ${url ? `<a href="${escapeActualHtml(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary flex-shrink-0">ดูไฟล์</a>` : ''}
+        <div class="d-flex flex-wrap gap-1 flex-shrink-0">
+          ${url ? `<a href="${escapeActualHtml(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">ดูไฟล์</a>` : ''}
+          ${status === 'active' ? `
+            <button type="button" class="btn btn-sm btn-outline-warning" data-history-file-action="replace" data-file-id="${escapeActualHtml(item.id)}">แทนที่</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-history-file-action="remove" data-file-id="${escapeActualHtml(item.id)}">ลบ</button>
+          ` : ''}
+        </div>
       </div>`;
     }).join('');
+    container.querySelectorAll('[data-history-file-action]').forEach(button => {
+      button.addEventListener('click', () => {
+        const file = history.find(item => String(item.id) === button.dataset.fileId && item.status === 'active');
+        if (!file) return;
+        if (button.dataset.historyFileAction === 'replace') chooseReplacementFile(file.id);
+        else confirmDeleteFile(file.id, file.name);
+      });
+    });
   }
 
   function chooseReplacementFile(fileRowId) {
@@ -185,8 +210,11 @@
     if (!replacementTargetId || !input.files || !input.files[0]) return;
     const id = replacementTargetId;
     replacementTargetId = '';
-    const old = (currentContextData?.existingMonthFiles || []).find(item => String(item.id) === id);
-    if (!old) return;
+    const old = findActiveAttachment(id);
+    if (!old) {
+      Swal.fire({ icon: 'error', title: 'ไม่พบไฟล์ที่ใช้งาน', text: 'กรุณาโหลดรายการไฟล์ใหม่แล้วลองอีกครั้ง' });
+      return;
+    }
     let file = input.files[0];
     if (!(file.type === 'application/pdf' || /^image\/(jpeg|png|webp|gif)$/i.test(file.type))) {
       Swal.fire({ icon: 'error', title: 'ไฟล์ไม่ถูกต้อง', text: 'กรุณาเลือก PDF หรือรูปภาพ JPG, PNG, WebP, GIF' });
@@ -209,7 +237,7 @@
     Swal.fire({ title: 'กำลังแทนที่ไฟล์...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     const fiscalYear = document.getElementById('actYear').value;
     const refId = document.getElementById('actRefId').value;
-    const monthYear = `${document.getElementById('actMonth').value} ${document.getElementById('actActualYear').value}`;
+    const monthYear = old.month || selectedAttachmentMonth();
     google.script.run.withSuccessHandler(res => {
       Swal.fire({ icon: res.success ? 'success' : 'error', title: res.success ? 'แทนที่สำเร็จ' : 'แทนที่ไม่สำเร็จ', text: res.message });
       if (res.success) { checkMonthlyContext(); loadDashboard(); }
@@ -221,7 +249,12 @@
   function confirmDeleteFile(fileRowId, fileName) {
     const fiscalYear = document.getElementById('actYear').value;
     const refId = document.getElementById('actRefId').value;
-    const monthYear = `${document.getElementById('actMonth').value} ${document.getElementById('actActualYear').value}`;
+    const file = findActiveAttachment(fileRowId);
+    if (!file) {
+      Swal.fire({ icon: 'error', title: 'ไม่พบไฟล์ที่ใช้งาน', text: 'กรุณาโหลดรายการไฟล์ใหม่แล้วลองอีกครั้ง' });
+      return;
+    }
+    const monthYear = file.month || selectedAttachmentMonth();
     Swal.fire({
       title: 'นำไฟล์นี้ออก?',
       html: `ไฟล์ <strong>${escapeActualHtml(fileName)}</strong> จะออกจากรายการใช้งาน โดยยังมีชื่อและเวลาอยู่ในประวัติ`,

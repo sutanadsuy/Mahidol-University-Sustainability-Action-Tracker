@@ -2,6 +2,14 @@
   let isEditingMasterItem = false;
   let isEditingDeptItem = false;
   let adminDocsCache = [];
+  let adminCenterData = null;
+  let adminReplaceDocId = '';
+
+  function escapeAdminHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+  }
 
   function calcAutoWeight() {
     const bgt = getCleanNumber(document.getElementById('adminNewBudget').value);
@@ -45,6 +53,7 @@
     google.script.run.withSuccessHandler(res => {
       Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, confirmButtonColor: '#0d6efd' });
       loadDashboard();
+      loadAdminCenter();
     }).updateStepWeights(payload);
   }
 
@@ -52,35 +61,38 @@
   function renderDeptTable(deptList) {
     const tbody = document.getElementById('adminDeptTableBody');
     if (!tbody) return;
+    deptList = adminCenterData ? adminCenterData.departments : deptList;
 
     if (!deptList || deptList.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-2">ยังไม่มีข้อมูลหน่วยงาน</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-2">ยังไม่มีข้อมูลหน่วยงาน</td></tr>';
       return;
     }
 
     tbody.innerHTML = deptList.map(d => `
-      <tr>
+      <tr class="${d.archived ? 'table-secondary' : ''}">
         <td>
-          <a href="javascript:void(0)" class="clickable-project text-dark fw-bold d-block text-truncate" style="max-width: 130px;" onclick="populateEditDept('${d.name}')" title="คลิกเพื่อแก้ไขข้อมูลหน่วยงาน">
-            ${d.name}
+          <a href="javascript:void(0)" class="clickable-project text-dark fw-bold d-block text-truncate" style="max-width: 130px;" data-dept-id="${escapeAdminHtml(d.id)}" onclick="populateEditDept(this.dataset.deptId)" title="คลิกเพื่อแก้ไขข้อมูลหน่วยงาน">
+            ${escapeAdminHtml(d.name)}
           </a>
         </td>
         <td>
-          <div class="text-truncate fw-bold" style="max-width: 110px;" title="${d.headName}">${d.headName}</div>
-          <small class="text-muted text-truncate d-block" style="font-size: 0.68rem;" title="${d.headEmail}">${d.headEmail}</small>
+          <div class="text-truncate fw-bold" style="max-width: 110px;" title="${escapeAdminHtml(d.headName)}">${escapeAdminHtml(d.headName)}</div>
+          <small class="text-muted text-truncate d-block" style="font-size: 0.68rem;" title="${escapeAdminHtml(d.headEmail)}">${escapeAdminHtml(d.headEmail)}</small>
         </td>
         <td class="text-center">
-          <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" onclick="populateEditDept('${d.name}')" title="แก้ไขหน่วยงาน">
+          <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" data-dept-id="${escapeAdminHtml(d.id)}" onclick="populateEditDept(this.dataset.deptId)" title="แก้ไขหน่วยงาน">
             <i class="bi bi-pencil-square"></i>
           </button>
         </td>
+        <td class="small text-muted">${escapeAdminHtml(d.createdAt || '-')}</td>
+        <td class="text-center"><span class="badge ${d.archived ? 'text-bg-secondary' : 'text-bg-success'} mb-1">${d.archived ? 'นำออกแล้ว' : 'ใช้งาน'}</span><br><button type="button" class="btn btn-sm ${d.archived ? 'btn-outline-success' : 'btn-outline-danger'} py-0 px-1" data-dept-id="${escapeAdminHtml(d.id)}" onclick="changeAdminDepartment(this.dataset.deptId, ${!d.archived})">${d.archived ? 'คืน' : 'ลบ'}</button></td>
       </tr>
     `).join('');
   }
 
   // ดึงข้อมูลหน่วยงานขึ้นฟอร์มเพื่อแก้ไข
-  function populateEditDept(deptName) {
-    const found = (masterData.departments || []).find(d => d.name === deptName);
+  function populateEditDept(deptId) {
+    const found = ((adminCenterData && adminCenterData.departments) || masterData.departments || []).find(d => d.id === deptId || d.name === deptId);
     if (!found) return;
 
     isEditingDeptItem = true;
@@ -90,7 +102,7 @@
     document.getElementById('deptHeadEmail').value = found.headEmail;
 
     const header = document.getElementById('deptFormHeader');
-    header.innerHTML = `<span class="text-warning text-dark"><i class="bi bi-pencil-square me-1"></i> แก้ไข: ${found.name}</span>`;
+    header.innerHTML = `<span class="text-warning text-dark"><i class="bi bi-pencil-square me-1"></i> แก้ไข: ${escapeAdminHtml(found.name)}</span>`;
 
     const btn = document.getElementById('btnSaveDept');
     btn.className = 'btn btn-warning w-100 fw-bold';
@@ -157,7 +169,7 @@
   }
 
   function populateEditProject(projectId) {
-    const p = (masterData.projects || []).find(item => item.id === projectId);
+    const p = ((adminCenterData && adminCenterData.projects) || masterData.projects || []).find(item => item.id === projectId);
     if (!p) return;
 
     isEditingMasterItem = true;
@@ -178,7 +190,7 @@
     document.getElementById('adminNewWeight').value = p.weight || 0;
 
     const header = document.getElementById('adminFormHeader');
-    header.innerHTML = `<span class="text-warning text-dark"><i class="bi bi-pencil-square me-1"></i> แก้ไขข้อมูลโครงการ: [${p.id}]</span>`;
+    header.innerHTML = `<span class="text-warning text-dark"><i class="bi bi-pencil-square me-1"></i> แก้ไขข้อมูลโครงการ: [${escapeAdminHtml(p.id)}]</span>`;
 
     const submitBtn = document.getElementById('adminSubmitBtn');
     submitBtn.className = 'btn btn-primary px-4';
@@ -213,7 +225,7 @@
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">ไม่พบรายการโครงการในปีงบประมาณนี้</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">ไม่พบรายการโครงการในปีงบประมาณนี้</td></tr>';
       return;
     }
 
@@ -222,24 +234,26 @@
       const weightFormatted = p.weight ? Number(p.weight).toFixed(2) : '0.00';
 
       return `
-        <tr>
-          <td class="fw-bold text-center bg-light">${p.id}</td>
-          <td class="text-center">${p.fiscalYear}</td>
+        <tr class="${p.status === 'Cancelled' ? 'table-secondary' : ''}">
+          <td class="fw-bold text-center bg-light">${escapeAdminHtml(p.id)}</td>
+          <td class="text-center">${escapeAdminHtml(p.fiscalYear)}</td>
           <td>
-            <a href="javascript:void(0)" class="clickable-project text-dark" onclick="populateEditProject('${p.id}')" title="คลิกเพื่อแก้ไขข้อมูลโครงการ">
-              ${p.name}
+            <a href="javascript:void(0)" class="clickable-project text-dark" data-project-id="${escapeAdminHtml(p.id)}" onclick="populateEditProject(this.dataset.projectId)" title="คลิกเพื่อแก้ไขข้อมูลโครงการ">
+              ${escapeAdminHtml(p.name)}
             </a>
           </td>
           <td class="text-end fw-bold text-primary">${bgtFormatted}</td>
           <td class="text-end">${weightFormatted}%</td>
           <td>
-            <div class="fw-bold">${p.primaryResp}</div>
-            <small class="text-muted" style="font-size: 0.72rem;">${p.primaryEmail}</small>
+            <div class="fw-bold">${escapeAdminHtml(p.primaryResp)}</div>
+            <small class="text-muted" style="font-size: 0.72rem;">${escapeAdminHtml(p.primaryEmail)}</small>
           </td>
+          <td class="text-center"><span class="badge ${p.status === 'Cancelled' ? 'text-bg-secondary' : 'text-bg-success'}">${p.status === 'Cancelled' ? 'นำออกแล้ว' : 'ใช้งาน'}</span></td>
           <td class="text-center">
-            <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2" onclick="populateEditProject('${p.id}')" title="แก้ไขข้อมูลโครงการ">
+            <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2" data-project-id="${escapeAdminHtml(p.id)}" onclick="populateEditProject(this.dataset.projectId)" title="แก้ไขข้อมูลโครงการ">
               <i class="bi bi-pencil-square"></i> แก้ไข
             </button>
+            <button type="button" class="btn btn-sm ${p.status === 'Cancelled' ? 'btn-outline-success' : 'btn-outline-danger'} py-0 px-2 mt-1" data-project-id="${escapeAdminHtml(p.id)}" data-fy="${escapeAdminHtml(p.fiscalYear)}" onclick="changeAdminProject(this.dataset.fy, this.dataset.projectId, ${p.status !== 'Cancelled'})">${p.status === 'Cancelled' ? 'คืน' : 'ลบ'}</button>
           </td>
         </tr>
       `;
@@ -250,7 +264,7 @@
     const currentFY = String(document.getElementById('adminNewFiscalYear')?.value || document.getElementById('dashYear')?.value || '2569').trim();
     const query = (document.getElementById('adminSearchProjectInput')?.value || '').toLowerCase().trim();
 
-    let filtered = masterData && masterData.projects ? masterData.projects : [];
+    let filtered = adminCenterData ? adminCenterData.projects : (masterData && masterData.projects ? masterData.projects : []);
     if (currentFY) {
       filtered = filtered.filter(p => String(p.fiscalYear).trim() === currentFY);
     }
@@ -316,7 +330,7 @@
         renderAdminBudgetDocsTable(adminDocsCache);
       })
       .withFailureHandler(err => {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-1"></i> โหลดเอกสารไม่สำเร็จ: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill me-1"></i> โหลดเอกสารไม่สำเร็จ: ${escapeAdminHtml(err.message)}</td></tr>`;
       })
       .getAllMasterBudgetDocsForAdmin(currentFY);
   }
@@ -335,18 +349,19 @@
       const iconClass = isPdf ? 'bi-file-earmark-pdf text-danger' : 'bi-file-earmark-word text-primary';
 
       return `
-        <tr data-doc-id="${d.id}">
+        <tr data-doc-id="${escapeAdminHtml(d.id)}" class="${d.isLatest ? '' : 'table-secondary'}">
           <td class="text-center">
             <input type="number" class="form-control form-control-sm text-center doc-priority-input py-0" value="${d.priority || (idx + 1)}" min="1" style="max-width: 65px; margin: 0 auto;">
           </td>
           <td>
-            <a href="${d.url}" target="_blank" class="fw-bold text-decoration-none text-dark d-block" title="คลิกเพื่อเปิดดูไฟล์">
-              <i class="bi ${iconClass} me-1 fs-6"></i> ${d.docName}
+            <a href="${escapeAdminHtml(d.url)}" target="_blank" class="fw-bold text-decoration-none text-dark d-block" title="คลิกเพื่อเปิดดูไฟล์">
+              <i class="bi ${iconClass} me-1 fs-6"></i> ${escapeAdminHtml(d.docName)}
             </a>
-            <small class="text-muted" style="font-size: 0.72rem;">ไฟล์: ${d.fileName}</small>
+            <small class="text-muted" style="font-size: 0.72rem;">ไฟล์: ${escapeAdminHtml(d.fileName)}</small>
+            ${d.replacesDocId ? `<small class="text-muted d-block">แทนที่ ${escapeAdminHtml(d.replacesDocId)}</small>` : ''}
           </td>
-          <td class="text-center"><span class="badge bg-light text-dark border">${d.category}</span></td>
-          <td class="text-center text-muted" style="font-size: 0.75rem;">${d.uploadedAt}</td>
+          <td class="text-center"><span class="badge bg-light text-dark border">${escapeAdminHtml(d.category)}</span></td>
+          <td class="text-center text-muted" style="font-size: 0.75rem;">${escapeAdminHtml(d.uploadedAt)}</td>
           <td class="text-center">
             <select class="form-select form-select-sm doc-status-select" style="font-size: 0.78rem;">
               <option value="active" ${d.isLatest ? 'selected' : ''}>🟢 บังคับใช้ (แสดง)</option>
@@ -354,9 +369,12 @@
             </select>
           </td>
           <td class="text-center">
-            <button type="button" class="btn btn-sm btn-primary py-0 px-2" onclick="saveDocRowSetting('${d.id}', this)" title="บันทึกการเปลี่ยนแปลงแถวนี้">
+            <button type="button" class="btn btn-sm btn-primary py-0 px-2" onclick="saveDocRowSetting(this.closest('tr').dataset.docId, this)" title="บันทึกลำดับและสถานะ">
               <i class="bi bi-save"></i>
             </button>
+            <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" onclick="editAdminDocument(this.closest('tr').dataset.docId)">แก้ไข</button>
+            <button type="button" class="btn btn-sm btn-outline-info py-0 px-2" onclick="replaceAdminDocument(this.closest('tr').dataset.docId)">แทนที่</button>
+            <button type="button" class="btn btn-sm ${d.isLatest ? 'btn-outline-danger' : 'btn-outline-success'} py-0 px-2" onclick="changeAdminDocument(this.closest('tr').dataset.docId, ${!d.isLatest})">${d.isLatest ? 'ลบ' : 'คืน'}</button>
           </td>
         </tr>
       `;
@@ -387,6 +405,7 @@
         });
         loadAdminBudgetDocsTable();
         loadDashboard();
+        loadAdminCenter();
       })
       .withFailureHandler(err => {
         btnElem.disabled = false;
@@ -435,6 +454,7 @@
         document.getElementById('docFiscalYear').value = document.getElementById('dashYear').value;
         loadAdminBudgetDocsTable();
         loadDashboard();
+        loadAdminCenter();
       })
       .withFailureHandler(err => {
         btn.disabled = false;
@@ -442,5 +462,213 @@
         Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message, confirmButtonColor: '#dc3545' });
       })
       .uploadMasterBudgetDoc(payload, fileObj);
+  }
+
+  function loadAdminCenter() {
+    const year = String(document.getElementById('adminNewFiscalYear')?.value || document.getElementById('dashYear')?.value || '2569');
+    google.script.run.withSuccessHandler(raw => {
+      try {
+        adminCenterData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        renderAdminBudgetTable();
+        renderDeptTable(adminCenterData.departments);
+        renderAdminWeightsSummary();
+        filterAdminProjectTable();
+        renderAdminHistory();
+      } catch (error) {
+        Swal.fire({ icon: 'error', title: 'แสดงข้อมูลแอดมินไม่สำเร็จ', text: error.message });
+      }
+    }).withFailureHandler(err => {
+      const target = document.getElementById('adminBudgetTableBody');
+      if (target) target.innerHTML = `<tr><td colspan="5" class="text-danger text-center">โหลดข้อมูลไม่สำเร็จ: ${escapeAdminHtml(err.message)}</td></tr>`;
+    }).getAdminCenterData(year);
+  }
+
+  function renderAdminBudgetTable() {
+    const target = document.getElementById('adminBudgetTableBody');
+    if (!target) return;
+    const budgets = adminCenterData?.budgets || [];
+    target.innerHTML = budgets.length ? budgets.map(b => `<tr class="${b.archived ? 'table-secondary' : ''}">
+      <td class="fw-semibold">${escapeAdminHtml(b.year)}</td>
+      <td class="text-end">${Number(b.amount).toLocaleString('th-TH')}</td>
+      <td class="small text-muted">${escapeAdminHtml(b.updatedAt || '-')}</td>
+      <td><span class="badge ${b.archived ? 'text-bg-secondary' : 'text-bg-success'}">${b.archived ? 'นำออกแล้ว' : 'ใช้งาน'}</span></td>
+      <td class="text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary py-0" data-year="${escapeAdminHtml(b.year)}" onclick="editAdminBudget(this.dataset.year)">แก้ไข</button>
+      <button type="button" class="btn btn-sm ${b.archived ? 'btn-outline-success' : 'btn-outline-danger'} py-0" data-year="${escapeAdminHtml(b.year)}" onclick="changeAdminBudget(this.dataset.year, ${!b.archived})">${b.archived ? 'คืน' : 'ลบ'}</button></td>
+    </tr>`).join('') : '<tr><td colspan="5" class="text-center text-muted">ยังไม่มีข้อมูลงบประมาณ</td></tr>';
+  }
+
+  function editAdminBudget(year) {
+    const row = (adminCenterData?.budgets || []).find(b => b.year === year);
+    if (!row) return;
+    document.getElementById('adminBudgetYear').value = row.year;
+    document.getElementById('adminMasterBudgetVal').value = Number(row.amount).toLocaleString('en-US');
+    document.getElementById('adminBudgetYear').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function renderAdminWeightsSummary() {
+    const target = document.getElementById('adminWeightsSummary');
+    if (!target || !adminCenterData) return;
+    const labels = { draft: 'ร่าง', approval: 'อนุมัติ', execute: 'ดำเนินการ', disburse: 'เบิกจ่าย', report: 'สรุปผล' };
+    target.innerHTML = Object.entries(labels).map(([key, label]) => `<span class="badge bg-light text-dark border me-1 mb-1">${label} ${Number(adminCenterData.weights[key] || 0)}%</span>`).join('') +
+      `<div class="text-muted mt-1">ปรับล่าสุด: ${escapeAdminHtml(adminCenterData.weightUpdatedAt || 'ไม่มีวันที่บันทึก')}</div>`;
+  }
+
+  async function confirmAdminArchive(label, archived) {
+    const answer = await Swal.fire({
+      icon: 'question', title: archived ? 'นำรายการออกจากการใช้งาน?' : 'คืนรายการเข้าระบบ?',
+      text: archived ? `${label} จะไม่แสดงในหน้าที่ใช้งาน แต่ข้อมูลเดิมและประวัติยังอยู่` : label,
+      showCancelButton: true, confirmButtonText: archived ? 'นำออก' : 'คืนรายการ', cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: archived ? '#dc3545' : '#198754'
+    });
+    return answer.isConfirmed;
+  }
+
+  async function changeAdminBudget(year, archived) {
+    if (!await confirmAdminArchive('งบปี ' + year, archived)) return;
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire({ icon: 'success', title: res.message, timer: 1800, showConfirmButton: false });
+      loadAdminCenter(); loadMasterAndDashboard();
+    }).withFailureHandler(err => Swal.fire({ icon: 'error', title: 'ดำเนินการไม่สำเร็จ', text: err.message }))
+      .setAdminBudgetArchived(year, archived);
+  }
+
+  async function changeAdminDepartment(id, archived) {
+    const row = (adminCenterData?.departments || []).find(d => d.id === id);
+    if (!row || !await confirmAdminArchive(row.name, archived)) return;
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire({ icon: 'success', title: res.message, timer: 1800, showConfirmButton: false });
+      loadAdminCenter(); loadMasterAndDashboard();
+    }).withFailureHandler(err => Swal.fire({ icon: 'error', title: 'ดำเนินการไม่สำเร็จ', text: err.message }))
+      .setAdminDepartmentArchived(id, archived);
+  }
+
+  async function changeAdminProject(year, id, archived) {
+    if (!await confirmAdminArchive('โครงการ ' + id, archived)) return;
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire({ icon: 'success', title: res.message, timer: 1800, showConfirmButton: false });
+      loadAdminCenter(); loadMasterAndDashboard();
+    }).withFailureHandler(err => Swal.fire({ icon: 'error', title: 'ดำเนินการไม่สำเร็จ', text: err.message }))
+      .setAdminProjectArchived(year, id, archived);
+  }
+
+  async function resetAdminWeights() {
+    if (!await confirmAdminArchive('คืนค่าน้ำหนักเป็น 5 / 5 / 75 / 5 / 10%', false)) return;
+    google.script.run.withSuccessHandler(res => {
+      document.getElementById('wDraft').value = 5;
+      document.getElementById('wAppr').value = 5;
+      document.getElementById('wExec').value = 75;
+      document.getElementById('wDisb').value = 5;
+      document.getElementById('wRepo').value = 10;
+      calcTotalWeights(); loadAdminCenter(); loadDashboard();
+      Swal.fire({ icon: 'success', title: res.message });
+    }).withFailureHandler(err => Swal.fire({ icon: 'error', title: 'คืนค่าไม่สำเร็จ', text: err.message }))
+      .resetStepWeightsToDefaults();
+  }
+
+  function renderAdminHistory() {
+    const target = document.getElementById('adminHistoryTableBody');
+    if (!target) return;
+    const filter = document.getElementById('adminHistoryFilter')?.value || 'ALL';
+    const rows = (adminCenterData?.history || []).filter(h => filter === 'ALL' || h.area === filter);
+    const labels = { budget: 'งบรวม', department: 'หน่วยงาน', weights: 'ค่าน้ำหนัก', project: 'โครงการ', document: 'เอกสาร' };
+    const actions = { CREATE: 'เพิ่ม', UPDATE: 'แก้ไข', ARCHIVE: 'นำออก', RESTORE: 'คืน', REPLACE: 'แทนที่ไฟล์' };
+    target.innerHTML = rows.length ? rows.map(h => `<tr>
+      <td class="text-nowrap">${escapeAdminHtml(h.at)}</td><td>${escapeAdminHtml(h.actor)}</td>
+      <td>${escapeAdminHtml(labels[h.area] || h.area)}</td><td>${escapeAdminHtml(h.key)}</td>
+      <td>${escapeAdminHtml(actions[h.action] || h.action)}</td>
+      <td><button type="button" class="btn btn-sm btn-outline-primary py-0" data-change-id="${escapeAdminHtml(h.id)}" onclick="showAdminChange(this.dataset.changeId)">ก่อน–หลัง</button></td>
+    </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted py-3">ยังไม่มีประวัติในหัวข้อนี้ การเปลี่ยนแปลงใหม่จะปรากฏที่นี่</td></tr>';
+    document.getElementById('adminHistoryMoreBtn')?.classList.toggle('d-none', !adminCenterData?.historyHasMore);
+  }
+
+  function loadMoreAdminHistory() {
+    if (!adminCenterData) return;
+    const button = document.getElementById('adminHistoryMoreBtn');
+    button.disabled = true;
+    google.script.run.withSuccessHandler(raw => {
+      const page = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      adminCenterData.history.push(...page.rows);
+      adminCenterData.historyHasMore = page.hasMore;
+      button.disabled = false;
+      renderAdminHistory();
+    }).withFailureHandler(err => {
+      button.disabled = false;
+      Swal.fire({ icon: 'error', title: 'โหลดประวัติไม่สำเร็จ', text: err.message });
+    }).getAdminHistoryPage(adminCenterData.history.length, 150);
+  }
+
+  function showAdminChange(changeId) {
+    const row = (adminCenterData?.history || []).find(h => h.id === changeId);
+    if (!row) return;
+    const pretty = value => { try { return JSON.stringify(JSON.parse(value), null, 2); } catch (_) { return value; } };
+    Swal.fire({ title: 'รายละเอียดการเปลี่ยนแปลง ' + row.key, width: '900px',
+      html: `<div class="row text-start"><div class="col-md-6"><strong>ก่อนแก้</strong><pre class="small bg-light border p-2" style="white-space:pre-wrap;max-height:320px;overflow:auto">${escapeAdminHtml(pretty(row.before))}</pre></div><div class="col-md-6"><strong>หลังแก้</strong><pre class="small bg-light border p-2" style="white-space:pre-wrap;max-height:320px;overflow:auto">${escapeAdminHtml(pretty(row.after))}</pre></div></div>` });
+  }
+
+  async function editAdminDocument(docId) {
+    const doc = adminDocsCache.find(d => d.id === docId);
+    if (!doc) return;
+    const result = await Swal.fire({
+      title: 'แก้ไขรายละเอียดเอกสาร', width: '600px', showCancelButton: true,
+      confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก',
+      html: `<div class="text-start"><label class="form-label">ชื่อเอกสาร</label><input id="editAdminDocName" class="swal2-input w-100 m-0 mb-3" value="${escapeAdminHtml(doc.docName)}">
+        <label class="form-label">หมวดหมู่</label><input id="editAdminDocCategory" class="swal2-input w-100 m-0 mb-3" value="${escapeAdminHtml(doc.category)}">
+        <label class="form-label">ลำดับ</label><input id="editAdminDocPriority" type="number" min="1" class="swal2-input w-100 m-0" value="${Number(doc.priority) || 1}"></div>`,
+      preConfirm: () => {
+        const payload = { docName: document.getElementById('editAdminDocName').value.trim(),
+          category: document.getElementById('editAdminDocCategory').value.trim(),
+          priority: Number(document.getElementById('editAdminDocPriority').value) };
+        if (!payload.docName || !payload.category || !Number.isFinite(payload.priority) || payload.priority < 1) {
+          Swal.showValidationMessage('กรุณากรอกชื่อ หมวดหมู่ และลำดับให้ครบ'); return false;
+        }
+        return payload;
+      }
+    });
+    if (!result.isConfirmed) return;
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire({ icon: 'success', title: res.message, timer: 1800, showConfirmButton: false });
+      loadAdminBudgetDocsTable(); loadAdminCenter(); loadDashboard();
+    }).withFailureHandler(err => Swal.fire({ icon: 'error', title: 'แก้ไขไม่สำเร็จ', text: err.message }))
+      .updateMasterBudgetDocMetadata(docId, result.value);
+  }
+
+  function replaceAdminDocument(docId) {
+    adminReplaceDocId = docId;
+    const input = document.getElementById('adminDocReplaceFile');
+    input.value = '';
+    input.click();
+  }
+
+  async function submitAdminDocReplacement(event) {
+    const file = event.target.files?.[0];
+    const docId = adminReplaceDocId;
+    if (!file || !docId) return;
+    const doc = adminDocsCache.find(d => d.id === docId);
+    if (!doc) return;
+    const confirm = await Swal.fire({ icon: 'question', title: 'แทนที่ไฟล์เอกสาร?',
+      text: `ใช้ ${file.name} แทนไฟล์ของ ${doc.docName} โดยเก็บไฟล์เดิมไว้ในประวัติ`,
+      showCancelButton: true, confirmButtonText: 'แทนที่ไฟล์', cancelButtonText: 'ยกเลิก' });
+    if (!confirm.isConfirmed) return;
+    Swal.fire({ title: 'กำลังอัปโหลดไฟล์ทดแทน', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      const fileObj = { name: file.name, mimeType: file.type, base64: await toBase64(file) };
+      google.script.run.withSuccessHandler(res => {
+        Swal.fire({ icon: 'success', title: res.message });
+        loadAdminBudgetDocsTable(); loadAdminCenter(); loadDashboard();
+      }).withFailureHandler(err => Swal.fire({ icon: 'error', title: 'แทนที่ไฟล์ไม่สำเร็จ', text: err.message }))
+        .replaceMasterBudgetDoc(docId, fileObj);
+    } catch (error) {
+      Swal.fire({ icon: 'error', title: 'อ่านไฟล์ไม่สำเร็จ', text: error.message });
+    }
+  }
+
+  async function changeAdminDocument(docId, active) {
+    const doc = adminDocsCache.find(d => d.id === docId);
+    if (!doc || !await confirmAdminArchive(doc.docName, !active)) return;
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire({ icon: 'success', title: res.message, timer: 1800, showConfirmButton: false });
+      loadAdminBudgetDocsTable(); loadAdminCenter(); loadDashboard();
+    }).withFailureHandler(err => Swal.fire({ icon: 'error', title: 'ดำเนินการไม่สำเร็จ', text: err.message }))
+      .updateMasterBudgetDocStatus(docId, active, doc.priority);
   }
 </script>

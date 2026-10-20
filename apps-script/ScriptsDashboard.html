@@ -80,6 +80,7 @@
       if (typeof filterAdminProjectTable === 'function') {
         filterAdminProjectTable();
       }
+      if (res.userAccess && res.userAccess.isAdmin && typeof loadAdminCenter === 'function') loadAdminCenter();
     }).withFailureHandler(err => {
       const message = err && err.message ? err.message : 'ไม่สามารถโหลดข้อมูลเริ่มต้นได้';
       if (statusBadge) {
@@ -156,6 +157,7 @@
       if (typeof filterAdminProjectTable === 'function') {
         filterAdminProjectTable();
       }
+      if (typeof loadAdminCenter === 'function' && document.getElementById('adminTab')?.classList.contains('show')) loadAdminCenter();
       loadDashboard();
     }).getMasterLists(year);
   }

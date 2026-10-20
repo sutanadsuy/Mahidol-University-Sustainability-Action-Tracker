@@ -42,7 +42,7 @@ function getInitialBootstrapData(fiscalYear) {
   if (deptSheet) {
     const deptRows = deptSheet.getDataRange().getValues();
     for (let i = 1; i < deptRows.length; i++) {
-      if (deptRows[i][1]) {
+      if (deptRows[i][1] && String(deptRows[i][5] || '').trim().toLowerCase() !== 'archived') {
         departments.push({
           id: String(deptRows[i][0] || '').trim(),
           name: String(deptRows[i][1]).trim(),
@@ -56,7 +56,7 @@ function getInitialBootstrapData(fiscalYear) {
   let totalMasterBudget = 0;
   if (bgtSheet) {
     const bgtData = bgtSheet.getDataRange().getValues().slice(1);
-    const found = bgtData.find(r => String(r[0]).trim() === targetYear);
+    const found = bgtData.find(r => String(r[0]).trim() === targetYear && String(r[3] || '').trim().toLowerCase() !== 'archived');
     if (found) totalMasterBudget = Number(found[1]) || 0;
   }
 
@@ -91,6 +91,7 @@ function addNewMasterItem(payload) {
 
   const targetId = String(payload.id).trim();
   const targetYear = String(payload.fiscalYear).trim();
+  if (!targetId || !targetYear) throw new Error('กรุณาระบุรหัสโครงการและปีงบประมาณ');
   const data = sheet.getDataRange().getValues();
   let foundRow = -1;
 
@@ -102,6 +103,7 @@ function addNewMasterItem(payload) {
   }
 
   if (foundRow > 0) {
+    const before = adminRowSnapshot_(data[foundRow - 1]);
     // โหมดแก้ไข: อัปเดตข้อมูลทับแถวเดิม โดยคงค่า Strategy, Start_Date, End_Date, Status เดิมไว้
     sheet.getRange(foundRow, 3).setValue(payload.name);
     sheet.getRange(foundRow, 5).setValue(payload.responsible);
@@ -113,6 +115,8 @@ function addNewMasterItem(payload) {
     sheet.getRange(foundRow, 14).setValue(payload.coEmail1 || '');
     sheet.getRange(foundRow, 15).setValue(payload.coName2 || '');
     sheet.getRange(foundRow, 16).setValue(payload.coEmail2 || '');
+    appendAdminChange_('project', targetYear + '/' + targetId, 'UPDATE', before,
+      adminRowSnapshot_(sheet.getRange(foundRow, 1, 1, sheet.getLastColumn()).getValues()[0]));
     return { success: true, message: `อัปเดตข้อมูลโครงการ ${targetId} สำเร็จเรียบร้อยแล้ว` };
   } else {
     // โหมดเพิ่มใหม่
@@ -122,6 +126,8 @@ function addNewMasterItem(payload) {
       '', '', 'Active',
       payload.primaryEmail, payload.coName1 || '', payload.coEmail1 || '', payload.coName2 || '', payload.coEmail2 || ''
     ]);
+    appendAdminChange_('project', targetYear + '/' + targetId, 'CREATE', null,
+      adminRowSnapshot_(sheet.getRange(sheet.getLastRow(), 1, 1, sheet.getLastColumn()).getValues()[0]));
     return { success: true, message: `เพิ่มโครงการ ${targetId} เข้าสู่ฐานข้อมูลสำเร็จ` };
   }
 }

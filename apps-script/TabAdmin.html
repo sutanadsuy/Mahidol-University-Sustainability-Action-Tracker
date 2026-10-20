@@ -1,9 +1,21 @@
 <div class="tab-pane fade" id="adminTab">
+  <div class="card p-3 card-box bg-white mb-4 border-primary">
+    <div class="fw-bold text-primary mb-2"><i class="bi bi-grid me-1"></i> ตรวจสอบข้อมูลย้อนหลังและจัดการแต่ละหัวข้อ</div>
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-sm btn-outline-dark" onclick="document.getElementById('adminBudgetSection').scrollIntoView({behavior:'smooth'})">💰 งบรายปี</button>
+      <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('adminDeptSection').scrollIntoView({behavior:'smooth'})">🏢 หน่วยงาน</button>
+      <button type="button" class="btn btn-sm btn-outline-warning" onclick="document.getElementById('adminWeightsSection').scrollIntoView({behavior:'smooth'})">⚙️ ค่าน้ำหนัก</button>
+      <button type="button" class="btn btn-sm btn-outline-success" onclick="document.getElementById('adminProjectsSection').scrollIntoView({behavior:'smooth'})">📋 โครงการ</button>
+      <button type="button" class="btn btn-sm btn-outline-info" onclick="document.getElementById('adminDocsSection').scrollIntoView({behavior:'smooth'})">📁 เอกสารงบใหญ่</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('adminHistorySection').scrollIntoView({behavior:'smooth'})">🕒 ประวัติการแก้ไข</button>
+    </div>
+    <small class="text-muted mt-2">ปุ่ม “ลบ” จะนำข้อมูลออกจากการใช้งาน โดยยังเก็บไว้ให้ตรวจสอบและคืนกลับได้</small>
+  </div>
   <div class="row g-4">
     <!-- ฝั่งซ้าย: การตั้งค่าระบบพื้นฐาน (งบรวม, หน่วยงาน + ตารางหน่วยงาน, ค่าน้ำหนัก) -->
     <div class="col-lg-4">
       <!-- 1. งบรวมประจำปี (Master Budget) -->
-      <div class="card p-4 card-box bg-white mb-4 border-start border-dark border-4">
+      <div class="card p-4 card-box bg-white mb-4 border-start border-dark border-4" id="adminBudgetSection">
         <h5 class="fw-bold text-dark mb-3">💰 งบรวมประจำปี (Master Budget)</h5>
         <div class="mb-2">
           <label class="form-label small fw-bold">ปีงบประมาณ</label>
@@ -16,10 +28,22 @@
         <button class="btn btn-dark w-100 fw-bold" onclick="saveBudgetSetting()">
           <i class="bi bi-save me-1"></i> บันทึกงบรวม
         </button>
+        <div class="mt-3 pt-3 border-top">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong class="small">งบประมาณย้อนหลังทุกปี</strong>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadAdminCenter()">รีเฟรช</button>
+          </div>
+          <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+            <table class="table table-sm table-bordered align-middle mb-0 small" style="min-width: 500px;">
+              <thead class="table-light sticky-top"><tr><th>ปีงบ</th><th class="text-end">วงเงิน (บาท)</th><th>ปรับล่าสุด</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+              <tbody id="adminBudgetTableBody"><tr><td colspan="5" class="text-muted text-center">กำลังโหลด...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- 2. เพิ่มข้อมูลหน่วยงาน + ตารางรายชื่อหน่วยงาน (ตามตัวอย่าง) -->
-      <div class="card p-4 card-box bg-white mb-4 border-start border-primary border-4">
+      <div class="card p-4 card-box bg-white mb-4 border-start border-primary border-4" id="adminDeptSection">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="fw-bold text-primary mb-0" id="deptFormHeader">🏢 เพิ่มข้อมูลหน่วยงาน</h5>
           <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="deptCancelEditBtn" onclick="resetDeptForm()">
@@ -55,16 +79,18 @@
             </button>
           </div>
           <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
-            <table class="table table-sm table-bordered table-hover align-middle mb-0" style="font-size: 0.75rem;">
+            <table class="table table-sm table-bordered table-hover align-middle mb-0" style="font-size: 0.75rem; min-width: 620px;">
               <thead class="table-light sticky-top">
                 <tr class="text-center">
                   <th class="text-start">หน่วยงาน / งาน</th>
                   <th class="text-start" style="width: 110px;">หัวหน้างาน</th>
                   <th style="width: 45px;">แก้ไข</th>
+                  <th>สร้างเมื่อ</th>
+                  <th style="width: 60px;">สถานะ/ลบ</th>
                 </tr>
               </thead>
               <tbody id="adminDeptTableBody">
-                <tr><td colspan="3" class="text-center text-muted py-2">กำลังโหลดหน่วยงาน...</td></tr>
+                <tr><td colspan="5" class="text-center text-muted py-2">กำลังโหลดหน่วยงาน...</td></tr>
               </tbody>
             </table>
           </div>
@@ -72,7 +98,7 @@
       </div>
 
       <!-- 3. ปรับค่าน้ำหนักขั้นตอน (Step Weights) -->
-      <div class="card p-4 card-box bg-white mb-4 border-start border-warning border-4">
+      <div class="card p-4 card-box bg-white mb-4 border-start border-warning border-4" id="adminWeightsSection">
         <h5 class="fw-bold text-warning text-dark mb-3">⚙️ ปรับค่าน้ำหนักขั้นตอน (Step Weights)</h5>
         <form id="weightsForm" onsubmit="handleWeightsSubmit(event)">
           <div class="mb-2">
@@ -103,13 +129,21 @@
             <i class="bi bi-check2-circle me-1"></i> บันทึกค่าน้ำหนักใหม่
           </button>
         </form>
+        <div class="mt-3 pt-3 border-top">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong class="small">ค่าน้ำหนักที่ใช้อยู่</strong>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="resetAdminWeights()">ลบค่าที่ตั้งเอง / คืนค่าเริ่มต้น</button>
+          </div>
+          <div id="adminWeightsSummary" class="small text-muted">กำลังโหลด...</div>
+          <small class="text-muted">ประวัติการปรับค่าดูได้ในตารางประวัติการจัดการด้านล่าง</small>
+        </div>
       </div>
     </div>
 
     <!-- ฝั่งขวา: การจัดการโครงการ + การจัดการเอกสารงบประมาณโครงการใหญ่ -->
     <div class="col-lg-8">
       <!-- ส่วนที่ 1: เพิ่ม / แก้ไขรายการโครงการ -->
-      <div class="card p-4 card-box bg-white mb-4">
+      <div class="card p-4 card-box bg-white mb-4" id="adminProjectsSection">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="fw-bold text-dark mb-0" id="adminFormHeader">➕ เพิ่มรายการโครงการ</h5>
           <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="adminCancelEditBtn" onclick="resetAdminMasterForm()">
@@ -125,7 +159,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label fw-bold text-primary">ปีงบประมาณ *</label>
-              <input type="number" id="adminNewFiscalYear" class="form-control border-primary" value="2569" required onchange="filterAdminProjectTable()">
+              <input type="number" id="adminNewFiscalYear" class="form-control border-primary" value="2569" required onchange="loadAdminCenter()">
             </div>
             <div class="col-md-4">
               <label class="form-label fw-bold">หน่วยงานที่รับผิดชอบ *</label>
@@ -194,7 +228,7 @@
         </div>
 
         <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
-          <table class="table table-bordered table-hover align-middle mb-0" style="font-size: 0.82rem;">
+          <table class="table table-bordered table-hover align-middle mb-0" style="font-size: 0.82rem; min-width: 1050px;">
             <thead class="table-light sticky-top">
               <tr class="text-center">
                 <th style="width: 100px;">รหัส (ID)</th>
@@ -203,11 +237,12 @@
                 <th style="width: 110px;">งบประมาณ (บ.)</th>
                 <th style="width: 75px;">ร้อยละ (%)</th>
                 <th class="text-start" style="width: 160px;">ผู้รับผิดชอบหลัก</th>
+                <th style="width: 85px;">สถานะ</th>
                 <th style="width: 75px;">จัดการ</th>
               </tr>
             </thead>
             <tbody id="adminProjectsTableBody">
-              <tr><td colspan="7" class="text-center text-muted py-4">กำลังโหลดข้อมูลโครงการ...</td></tr>
+              <tr><td colspan="8" class="text-center text-muted py-4">กำลังโหลดข้อมูลโครงการ...</td></tr>
             </tbody>
           </table>
         </div>
@@ -258,10 +293,11 @@
             </div>
           </div>
         </form>
+        <input type="file" id="adminDocReplaceFile" class="d-none" accept=".pdf,.doc,.docx,.xls,.xlsx" onchange="submitAdminDocReplacement(event)">
       </div>
 
       <!-- ส่วนที่ 4: ตารางบริหารจัดการเอกสารงบประมาณโครงการใหญ่ในระบบ -->
-      <div class="card p-4 card-box bg-white">
+      <div class="card p-4 card-box bg-white" id="adminDocsSection">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
           <div>
             <h6 class="fw-bold text-info text-dark mb-1"><i class="bi bi-file-earmark-text-fill text-info me-1"></i> รายการเอกสารงบประมาณโครงการใหญ่ในระบบ</h6>
@@ -273,7 +309,7 @@
         </div>
 
         <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
-          <table class="table table-bordered table-hover align-middle mb-0" style="font-size: 0.82rem;">
+          <table class="table table-bordered table-hover align-middle mb-0" style="font-size: 0.82rem; min-width: 900px;">
             <thead class="table-light sticky-top">
               <tr class="text-center">
                 <th style="width: 80px;" title="เลขลำดับที่แสดงบนแดชบอร์ด">ลำดับ</th>
@@ -281,7 +317,7 @@
                 <th style="width: 140px;">หมวดหมู่</th>
                 <th style="width: 130px;">วันที่อัปโหลด</th>
                 <th style="width: 140px;">สถานะการบังคับใช้</th>
-                <th style="width: 75px;">จัดการ</th>
+                <th style="width: 160px;">จัดการ</th>
               </tr>
             </thead>
             <tbody id="adminDocsTableBody">
@@ -291,5 +327,24 @@
         </div>
       </div>
     </div>
+  </div>
+  <div class="card p-4 card-box bg-white mt-4" id="adminHistorySection">
+    <div class="d-flex flex-wrap justify-content-between gap-2 align-items-center mb-3">
+      <div>
+        <h5 class="fw-bold text-primary mb-1"><i class="bi bi-clock-history me-1"></i> ประวัติการจัดการระบบ</h5>
+        <small class="text-muted">แสดงผู้แก้ไข เวลา และข้อมูลก่อน–หลัง สำหรับการเปลี่ยนแปลงนับจากเปิดใช้ประวัตินี้</small>
+      </div>
+      <select id="adminHistoryFilter" class="form-select form-select-sm" style="max-width: 210px;" onchange="renderAdminHistory()">
+        <option value="ALL">ทุกหัวข้อ</option><option value="budget">งบรวม</option><option value="department">หน่วยงาน</option>
+        <option value="weights">ค่าน้ำหนัก</option><option value="project">โครงการ</option><option value="document">เอกสารงบใหญ่</option>
+      </select>
+    </div>
+    <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+      <table class="table table-sm table-striped align-middle small mb-0">
+        <thead class="table-light sticky-top"><tr><th>วันเวลา</th><th>ผู้ดำเนินการ</th><th>หัวข้อ</th><th>รายการ</th><th>การดำเนินการ</th><th>รายละเอียด</th></tr></thead>
+        <tbody id="adminHistoryTableBody"><tr><td colspan="6" class="text-center text-muted">กำลังโหลดประวัติ...</td></tr></tbody>
+      </table>
+    </div>
+    <button type="button" id="adminHistoryMoreBtn" class="btn btn-sm btn-outline-primary mt-2 d-none" onclick="loadMoreAdminHistory()">โหลดประวัติก่อนหน้า</button>
   </div>
 </div>

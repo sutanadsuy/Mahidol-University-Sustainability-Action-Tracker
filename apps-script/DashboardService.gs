@@ -15,7 +15,8 @@ function getDashboardReport(fiscalYear, dept, refId, asOfMonthKey) {
 
   let masterTotalBudget = 0;
   if (bgtSheet) {
-    const bRow = bgtSheet.getDataRange().getValues().slice(1).find(r => String(r[0]).trim() === targetFY);
+    const bRow = bgtSheet.getDataRange().getValues().slice(1).find(r =>
+      String(r[0]).trim() === targetFY && String(r[3] || '').trim().toLowerCase() !== 'archived');
     if (bRow) masterTotalBudget = Number(bRow[1]) || 0;
   }
 

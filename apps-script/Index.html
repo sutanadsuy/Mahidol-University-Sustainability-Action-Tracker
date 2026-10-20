@@ -69,7 +69,7 @@
         <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#matrixTab" onclick="setTimeout(function(){ if(typeof loadTrackingMatrix==='function') loadTrackingMatrix(); }, 150);">📋 สรุปแผน vs ผลรายโครงการ</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#actualTab" onclick="setTimeout(checkMonthlyContext, 100)">📝 บันทึก/แก้ไขผลงาน & พัสดุ</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#planTab" onclick="setTimeout(function(){ if(typeof onPlanProjectSelected==='function') onPlanProjectSelected(); }, 100);">📅 วางแผน/ปรับช่วงเวลาโครงการ</a></li>
-        <li class="nav-item" id="adminTabNav"><a class="nav-link text-danger fw-bold" data-bs-toggle="pill" href="#adminTab" onclick="setTimeout(function(){ if(typeof filterAdminProjectTable==='function') filterAdminProjectTable(); if(typeof loadAdminBudgetDocsTable==='function') loadAdminBudgetDocsTable(); }, 150);">🔒 จัดการระบบ (Admin)</a></li>
+        <li class="nav-item" id="adminTabNav"><a class="nav-link text-danger fw-bold" data-bs-toggle="pill" href="#adminTab" onclick="setTimeout(function(){ if(typeof loadAdminCenter==='function') loadAdminCenter(); if(typeof loadAdminBudgetDocsTable==='function') loadAdminBudgetDocsTable(); }, 150);">🔒 จัดการระบบ (Admin)</a></li>
       </ul>
     </div>
 

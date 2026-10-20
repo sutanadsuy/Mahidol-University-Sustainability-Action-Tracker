@@ -57,14 +57,18 @@ console.log('Verified both System_Settings weight formats');
 const guardContext = vm.createContext({
   Session: { getActiveUser: () => ({ getEmail: () => '' }) }
 });
-for (const name of ['Main.gs', 'ConfigService.gs', 'ProjectService.gs', 'BudgetDocService.gs']) {
+for (const name of ['Main.gs', 'MasterService.gs', 'ConfigService.gs', 'ProjectService.gs', 'BudgetDocService.gs']) {
   new vm.Script(fs.readFileSync(path.join(root, name), 'utf8'), { filename: name }).runInContext(guardContext);
 }
 for (const [name, args] of [
   ['updateStepWeights', [{}]], ['setMasterBudget', ['2569', 1]],
   ['addDepartment', [{}]], ['addNewMasterItem', [{}]],
   ['uploadMasterBudgetDoc', [{}, {}]], ['getAllMasterBudgetDocsForAdmin', ['2569']],
-  ['updateMasterBudgetDocStatus', ['test', true, 1]]
+  ['updateMasterBudgetDocStatus', ['test', true, 1]],
+  ['getAdminCenterData', ['2569']], ['getAdminHistoryPage', [0, 150]],
+  ['setAdminBudgetArchived', ['2569', true]], ['setAdminDepartmentArchived', ['DEP-1', true]],
+  ['setAdminProjectArchived', ['2569', 'P1', true]], ['resetStepWeightsToDefaults', []],
+  ['updateMasterBudgetDocMetadata', ['test', {}]], ['replaceMasterBudgetDoc', ['test', {}]]
 ]) {
   let blocked = false;
   try { guardContext[name](...args); } catch (error) { blocked = /ไม่มีสิทธิ์/.test(error.message); }

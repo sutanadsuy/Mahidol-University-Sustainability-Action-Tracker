@@ -20,7 +20,7 @@
     const allocatedText = totalAllocated.toLocaleString('th-TH', { maximumFractionDigits: 0 });
     if (selectedDept === 'ALL') {
       const unallocated = masterBudget - totalAllocated;
-      summary.textContent = `กรอบงบปีนี้ ${masterBudget.toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท • จัดสรรให้โครงการแล้ว ${allocatedText} บาท • ${unallocated >= 0 ? 'ยังไม่จัดสรร' : 'จัดสรรเกินกรอบ'} ${Math.abs(unallocated).toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท`;
+      summary.textContent = `กรอบงบปีนี้ ${masterBudget.toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท • งบโครงการที่ดำเนินอยู่ ${allocatedText} บาท • ${unallocated >= 0 ? 'ส่วนต่างจากงบโครงการที่ดำเนินอยู่' : 'งบโครงการที่ดำเนินอยู่เกินกรอบ'} ${Math.abs(unallocated).toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท`;
     } else {
       summary.textContent = `งบจัดสรรของหน่วยงานนี้ ${allocatedText} บาท • แสดง ${rows.length} โครงการ`;
     }

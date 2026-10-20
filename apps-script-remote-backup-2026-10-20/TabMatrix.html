@@ -1,0 +1,63 @@
+<div class="tab-pane fade" id="matrixTab">
+  <div class="card p-3 mb-4 card-box bg-white">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 pb-2 border-bottom">
+      <div class="fw-bold text-secondary">
+        <i class="bi bi-file-earmark-spreadsheet-fill me-1 text-primary"></i> ตารางตรวจสอบ แผน VS ผล (แสดงตามกรอบเวลาจริงของโครงการ)
+      </div>
+      <div id="matrixLoadingStatus" class="mt-1 mt-md-0">
+        <span class="badge bg-light text-muted border py-1 px-2">
+          <i class="bi bi-clock me-1"></i> พร้อมแสดงผล
+        </span>
+      </div>
+    </div>
+
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label fw-bold">ปีงบประมาณ</label>
+        <select id="matrixYear" class="form-select" onchange="onMatrixFilterChange()"></select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold text-primary">เลือกรายการโครงการ</label>
+        <select id="matrixRefId" class="form-select border-primary" onchange="loadTrackingMatrix()"></select>
+      </div>
+      <div class="col-md-3">
+        <button class="btn btn-outline-primary w-100" onclick="loadTrackingMatrix()">
+          <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรชตาราง
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-3 card-box bg-white">
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover align-middle text-center mb-0" style="font-size: 0.82rem;">
+        <thead class="table-dark">
+          <tr>
+            <th rowspan="2" class="align-middle" style="min-width: 85px;">เดือน/ปี</th>
+            <th colspan="2">1. ร่าง (%)</th>
+            <th colspan="2">2. ขออนุมัติ (%)</th>
+            <th colspan="2">3. จัดซื้อ (บาท)</th>
+            <th colspan="2">4. ดำเนินการ (%)</th>
+            <th colspan="2">5. วางฎีกา (%)</th>
+            <th colspan="2">6. สรุปผล (%)</th>
+            <th rowspan="2" class="align-middle" style="min-width: 180px;">สรุปผลการดำเนินงานประจำเดือน</th>
+            <th rowspan="2" class="align-middle" style="min-width: 180px;">สาเหตุความล่าช้า (ถ้ามี)</th>
+          </tr>
+          <tr style="font-size: 0.78rem;">
+            <th>แผน</th><th>ผล</th>
+            <th>แผน</th><th>ผล</th>
+            <th>แผน</th><th>ผล</th>
+            <th>แผน</th><th>ผล</th>
+            <th>แผน</th><th>ผล</th>
+            <th>แผน</th><th>ผล</th>
+          </tr>
+        </thead>
+        <tbody id="matrixTableBody">
+          <tr>
+            <td colspan="15" class="text-muted py-4">กรุณาเลือกรายการโครงการด้านบน</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

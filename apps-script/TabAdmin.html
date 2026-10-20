@@ -134,8 +134,19 @@
             <strong class="small">ค่าน้ำหนักที่ใช้อยู่</strong>
             <button type="button" class="btn btn-sm btn-outline-danger" onclick="resetAdminWeights()">ลบค่าที่ตั้งเอง / คืนค่าเริ่มต้น</button>
           </div>
-          <div id="adminWeightsSummary" class="small text-muted">กำลังโหลด...</div>
-          <small class="text-muted">ประวัติการปรับค่าดูได้ในตารางประวัติการจัดการด้านล่าง</small>
+          <div class="table-responsive mb-3">
+            <table class="table table-sm table-bordered align-middle small mb-0" style="min-width: 580px;">
+              <thead class="table-light"><tr><th>ร่าง</th><th>อนุมัติ</th><th>ดำเนิน</th><th>เบิกจ่าย</th><th>สรุปผล</th><th>ปรับล่าสุด</th><th>จัดการ</th></tr></thead>
+              <tbody id="adminWeightsTableBody"><tr><td colspan="7" class="text-center text-muted">กำลังโหลด...</td></tr></tbody>
+            </table>
+          </div>
+          <strong class="small d-block mb-2">ประวัติการปรับค่าน้ำหนัก</strong>
+          <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+            <table class="table table-sm table-striped align-middle small mb-0" style="min-width: 450px;">
+              <thead class="table-light sticky-top"><tr><th>เวลา</th><th>ผู้แก้</th><th>ค่าใหม่</th><th>ตรวจสอบ</th></tr></thead>
+              <tbody id="adminWeightsHistoryBody"><tr><td colspan="4" class="text-center text-muted">ยังไม่มีประวัติการเปลี่ยนแปลง</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

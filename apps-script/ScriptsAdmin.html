@@ -506,11 +506,29 @@
   }
 
   function renderAdminWeightsSummary() {
-    const target = document.getElementById('adminWeightsSummary');
+    const target = document.getElementById('adminWeightsTableBody');
     if (!target || !adminCenterData) return;
-    const labels = { draft: 'ร่าง', approval: 'อนุมัติ', execute: 'ดำเนินการ', disburse: 'เบิกจ่าย', report: 'สรุปผล' };
-    target.innerHTML = Object.entries(labels).map(([key, label]) => `<span class="badge bg-light text-dark border me-1 mb-1">${label} ${Number(adminCenterData.weights[key] || 0)}%</span>`).join('') +
-      `<div class="text-muted mt-1">ปรับล่าสุด: ${escapeAdminHtml(adminCenterData.weightUpdatedAt || 'ไม่มีวันที่บันทึก')}</div>`;
+    const w = adminCenterData.weights;
+    target.innerHTML = `<tr>
+      <td>${Number(w.draft || 0)}%</td><td>${Number(w.approval || 0)}%</td>
+      <td>${Number(w.execute || 0)}%</td><td>${Number(w.disburse || 0)}%</td><td>${Number(w.report || 0)}%</td>
+      <td class="text-muted">${escapeAdminHtml(adminCenterData.weightUpdatedAt || '-')}</td>
+      <td><button type="button" class="btn btn-sm btn-outline-primary py-0" onclick="document.getElementById('wDraft').scrollIntoView({behavior:'smooth',block:'center'})">แก้ไข</button></td>
+    </tr>`;
+  }
+
+  function renderAdminWeightsHistory() {
+    const target = document.getElementById('adminWeightsHistoryBody');
+    if (!target) return;
+    const rows = (adminCenterData?.history || []).filter(h => h.area === 'weights');
+    target.innerHTML = rows.length ? rows.map(h => {
+      let values = {};
+      try { values = JSON.parse(h.after) || {}; } catch (_) {}
+      const valueText = ['draft', 'approval', 'execute', 'disburse', 'report']
+        .map(key => `${Math.round((Number(values[key]) || 0) * 100)}%`).join(' / ');
+      return `<tr><td class="text-nowrap">${escapeAdminHtml(h.at)}</td><td>${escapeAdminHtml(h.actor)}</td>
+        <td>${escapeAdminHtml(valueText)}</td><td><button type="button" class="btn btn-sm btn-outline-primary py-0" data-change-id="${escapeAdminHtml(h.id)}" onclick="showAdminChange(this.dataset.changeId)">ก่อน–หลัง</button></td></tr>`;
+    }).join('') : '<tr><td colspan="4" class="text-center text-muted">ยังไม่มีประวัติการเปลี่ยนแปลง ค่าปัจจุบันแสดงด้านบน</td></tr>';
   }
 
   async function confirmAdminArchive(label, archived) {
@@ -579,6 +597,7 @@
       <td><button type="button" class="btn btn-sm btn-outline-primary py-0" data-change-id="${escapeAdminHtml(h.id)}" onclick="showAdminChange(this.dataset.changeId)">ก่อน–หลัง</button></td>
     </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted py-3">ยังไม่มีประวัติในหัวข้อนี้ การเปลี่ยนแปลงใหม่จะปรากฏที่นี่</td></tr>';
     document.getElementById('adminHistoryMoreBtn')?.classList.toggle('d-none', !adminCenterData?.historyHasMore);
+    renderAdminWeightsHistory();
   }
 
   function loadMoreAdminHistory() {

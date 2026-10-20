@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    body { background-color: #f8fafc; font-family: 'Sarabun', -apple-system, sans-serif; }
+    .card-box { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .nav-pills .nav-link.active { background-color: #0d6efd; font-weight: 600; }
+    .badge-plan-prev { background-color: #fef3c7; color: #92400e; font-size: 0.75rem; border: 1px solid #fde68a; }
+    .badge-act-prev { background-color: #d1fae5; color: #065f46; font-size: 0.75rem; border: 1px solid #a7f3d0; }
+    .badge-plan-cur { background-color: #dbeafe; color: #1e40af; font-size: 0.75rem; border: 1px solid #bfdbfe; }
+    .badge-completed { background-color: #10b981; color: #fff; font-size: 0.75rem; font-weight: bold; }
+    .expense-row, .mproc-row { background: #fdfdfd; border-radius: 8px; border: 1px dashed #cbd5e1; padding: 8px 10px; margin-bottom: 6px; }
+    .chart-container-fixed { position: relative; height: 260px; width: 100%; }
+    .table-proc-header { background-color: #e2e8f0; font-size: 0.78rem; font-weight: bold; color: #334155; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; }
+    .chk-sublabel { font-size: 0.7rem; display: block; line-height: 1; margin-top: 2px; }
+    .summary-card-mini { background: #f1f5f9; border-radius: 8px; padding: 10px 12px; border: 1px solid #e2e8f0; }
+    .custom-file-upload { cursor: pointer; border: 1px dashed #0d6efd; border-radius: 4px; padding: 3px 6px; font-size: 0.75rem; color: #0d6efd; display: inline-flex; align-items: center; background: #f0f7ff; }
+    .custom-file-upload:hover { background: #e0effe; }
+    .clickable-project { cursor: pointer; text-decoration: none; font-weight: bold; }
+    .clickable-project:hover { text-decoration: underline; color: #0d6efd !important; }
+    
+    @media print {
+      body { background: #fff !important; }
+      .nav-pills, .alert-primary, #adminTabNav, .btn-print-hide { display: none !important; }
+      .card-box { box-shadow: none !important; border: 1px solid #ddd !important; }
+    }
+  </style>
+</head>
+<body class="p-3 p-md-4">
+  <div class="container-fluid">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+      <div>
+        <h4 class="fw-bold text-primary mb-1">Mahidol University Sustainability Action Tracker</h4>
+        <p class="text-muted mb-0 small">ระบบติดตามแผนงานขับเคลื่อนมหาวิทยาลัยมหิดลสู่การพัฒนาอย่างยั่งยืน</p>
+      </div>
+      <ul class="nav nav-pills mt-3 mt-md-0" id="mainTab">
+        <li class="nav-item"><a class="nav-link active" data-bs-toggle="pill" href="#dashboardTab">📊 แดชบอร์ดผู้บริหาร</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#matrixTab" onclick="setTimeout(function(){ if(typeof loadTrackingMatrix==='function') loadTrackingMatrix(); }, 150);">📋 สรุปแผน vs ผลรายโครงการ</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#actualTab" onclick="setTimeout(checkMonthlyContext, 100)">📝 บันทึก/แก้ไขผลงาน & พัสดุ</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#planTab">📅 วางแผน/ปรับช่วงเวลาโครงการ</a></li>
+        <li class="nav-item" id="adminTabNav"><a class="nav-link text-danger fw-bold" data-bs-toggle="pill" href="#adminTab" onclick="setTimeout(function(){ if(typeof filterAdminProjectTable==='function') filterAdminProjectTable(); if(typeof loadAdminBudgetDocsTable==='function') loadAdminBudgetDocsTable(); }, 150);">🔒 จัดการระบบ (Admin)</a></li>
+      </ul>
+    </div>
+
+    <div class="alert alert-primary d-flex justify-content-between align-items-center mb-4 py-2">
+      <small><i class="bi bi-clock-history me-1"></i> <strong>รอบการรายงานผล:</strong> ระบบแจ้งเตือนวันที่ 20 และ 24 กำหนดส่งภายในวันที่ <strong>26 ของทุกเดือน</strong></small>
+      <div>
+        <button class="btn btn-sm btn-light border me-2 btn-print-hide" onclick="window.print()"><i class="bi bi-printer me-1"></i>พิมพ์สรุป A4</button>
+        <span class="badge bg-light text-dark" id="userEmailBadge">กำลังเชื่อมต่อระบบ...</span>
+      </div>
+    </div>
+
+    <!-- ส่วนเรียกไฟล์แท็บหน้าจอต่างๆ -->
+    <div class="tab-content">
+      <?!= include('TabDashboard'); ?>
+      <?!= include('TabMatrix'); ?>
+      <?!= include('TabActual'); ?>
+      <?!= include('TabPlan'); ?>
+      <?!= include('TabAdmin'); ?>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- ส่วนเรียกโมดูลสคริปต์ย่อย -->
+  <?!= include('ScriptsUtils'); ?>
+  <?!= include('ScriptsDashboard'); ?>
+  <?!= include('ScriptsDashboardUI'); ?>
+  <?!= include('ScriptsDashboardCharts'); ?>
+  <?!= include('ScriptsPlan'); ?>
+  <?!= include('ScriptsActual'); ?>
+  <?!= include('ScriptsAdmin'); ?>
+</body>
+</html>

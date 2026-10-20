@@ -1,0 +1,101 @@
+<script>
+  function renderCharts(res) {
+    if (chartProgress) chartProgress.destroy();
+    if (chartExpense) chartExpense.destroy();
+
+    const ctxProg = document.getElementById('sCurveProgressChart').getContext('2d');
+    chartProgress = new Chart(ctxProg, {
+      type: 'line',
+      data: {
+        labels: res.months,
+        datasets: [
+          { label: 'แผนสะสม (% Plan)', data: res.overallPlanAcc, borderColor: '#f59e0b', tension: 0.3 },
+          { label: 'ผลจริงสะสม (% Actual)', data: res.overallActualAcc, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }
+        ]
+      },
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, max: 100 } } 
+      }
+    });
+
+    const ctxExp = document.getElementById('sCurveExpenseChart').getContext('2d');
+    chartExpense = new Chart(ctxExp, {
+      type: 'line',
+      data: {
+        labels: res.months,
+        datasets: [
+          { label: 'แผนเบิกจ่ายสะสม (บาท)', data: res.procurePlanAcc, borderColor: '#3b82f6', tension: 0.3 },
+          { label: 'เบิกจ่ายจริงสะสม (บาท)', data: res.procureActualAcc, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.3 }
+        ]
+      },
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false 
+      }
+    });
+  }
+
+  function renderSdgChart(sdgData) {
+    if (chartSdg) chartSdg.destroy();
+    const ctxSdg = document.getElementById('sdgChart').getContext('2d');
+    
+    const barCount = (sdgData.labels || []).length || 1;
+    const dynamicHeight = Math.max(220, barCount * 36);
+    document.getElementById('sdgChart').parentElement.style.height = dynamicHeight + 'px';
+
+    chartSdg = new Chart(ctxSdg, {
+      type: 'bar',
+      data: {
+        labels: sdgData.labels || [],
+        datasets: [{
+          label: 'จำนวนโครงการ',
+          data: sdgData.values || [],
+          backgroundColor: sdgData.colors || '#0D6EFD',
+          borderRadius: 6,
+          borderSkipped: false,
+          barThickness: 20
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return ` ${context.raw} โครงการ`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1,
+              precision: 0
+            },
+            grid: {
+              color: '#f1f5f9'
+            },
+            title: {
+              display: true,
+              text: 'จำนวนโครงการ (โครงการ)',
+              font: { size: 11 }
+            }
+          },
+          y: {
+            grid: { display: false },
+            ticks: {
+              font: { weight: 'bold', size: 12 }
+            }
+          }
+        }
+      }
+    });
+  }
+</script>

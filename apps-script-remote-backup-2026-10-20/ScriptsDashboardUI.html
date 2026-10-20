@@ -1,0 +1,370 @@
+<script>
+  function getDirectDriveImageUrl(url) {
+    if (!url) return '';
+    const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return 'https://drive.google.com/thumbnail?id=' + match[1] + '&sz=w1000';
+    }
+    return url;
+  }
+
+  function renderDashboardUI(res) {
+    if (!res) return;
+
+    // อัปเดต Heading ด้านบนสุดของหน้าแดชบอร์ดตามปีงบประมาณที่เลือก
+    const currentYear = document.getElementById('dashYear') ? document.getElementById('dashYear').value : '2569';
+    const mainHeading = document.getElementById('dashMainHeading');
+    if (mainHeading) {
+      const yearEn = Number(currentYear) > 2400 ? (Number(currentYear) - 543) : currentYear;
+      mainHeading.innerHTML = `<i class="bi bi-bar-chart-line-fill me-2"></i>Mahidol University Sustainability Action Tracker ปีงบประมาณ ${currentYear} (${yearEn})`;
+    }
+
+    const teamBox = document.getElementById('teamInfoBox');
+    const purchasingSection = document.getElementById('purchasingSection');
+    const delaySection = document.getElementById('delaySection');
+    const sdgChartCard = document.getElementById('sdgChartCard');
+    const overviewRightCards = document.getElementById('overviewRightCards');
+    const singleProjectFilesCard = document.getElementById('singleProjectFilesCard');
+
+    renderMasterDocs(res.masterDocs || []);
+
+    if (res.isAll) {
+      if (teamBox) teamBox.classList.add('d-none');
+      if (purchasingSection) purchasingSection.classList.add('d-none');
+      if (delaySection) delaySection.classList.remove('d-none');
+      if (sdgChartCard) sdgChartCard.classList.remove('d-none');
+      if (overviewRightCards) overviewRightCards.classList.remove('d-none');
+      if (singleProjectFilesCard) singleProjectFilesCard.classList.add('d-none');
+
+      const projHeaderCard = document.getElementById('singleProjectHeaderCard');
+      if (projHeaderCard) projHeaderCard.classList.add('d-none');
+
+      document.getElementById('cardTitle1').innerText = 'โครงการทั้งหมด';
+      document.getElementById('kpiVal1').innerText = (res.kpi.totalProjects || 0) + ' โครงการ';
+      document.getElementById('kpiSub1').innerText = '(Total Projects)';
+
+      document.getElementById('cardTitle2').innerText = 'ผลการดำเนินงานภาพรวม';
+      document.getElementById('kpiVal2').innerText = (res.asOfActOverall || 0) + '%';
+      document.getElementById('kpiSub2').innerText = `(แผนสะสม: ${res.asOfPlanOverall || 0}%)`;
+
+      document.getElementById('cardTitle3').innerText = 'แล้วเสร็จ 100%';
+      document.getElementById('kpiVal3').innerText = (res.kpi.completedCount || 0) + ' โครงการ';
+      document.getElementById('kpiSub3').innerText = '(Completed)';
+
+      document.getElementById('cardTitle4').innerText = 'ดำเนินการตามแผน';
+      document.getElementById('kpiVal4').innerText = (res.kpi.onTrackCount || 0) + ' โครงการ';
+      document.getElementById('kpiSub4').innerText = '(On Track)';
+
+      document.getElementById('cardTitle5').innerText = 'ล่าช้ากว่าแผน';
+      document.getElementById('kpiVal5').innerText = (res.kpi.delayedCount || 0) + ' โครงการ';
+      document.getElementById('kpiSub5').innerText = '(Delayed)';
+
+      const selectedDept = document.getElementById('dashDept') ? document.getElementById('dashDept').value : 'ALL';
+      let totalBgt = res.kpi.totalMasterBudget || 0;
+      let spentBgt = res.kpi.totalSpentBudget || 0;
+
+      if (selectedDept !== 'ALL' && masterData && masterData.projects) {
+        let deptAllocatedBudget = 0;
+        masterData.projects.forEach(p => {
+          const pDept = (p.dept || p.department || p.deptName || '').trim();
+          if (pDept === selectedDept.trim()) {
+            deptAllocatedBudget += Number(p.budget || p.budgetAllocated || p.allocatedBudget || 0);
+          }
+        });
+        if (deptAllocatedBudget > 0) {
+          totalBgt = deptAllocatedBudget;
+        }
+      }
+
+      const surplusBgt = Math.max(0, totalBgt - spentBgt);
+      const spentPct = totalBgt > 0 ? ((spentBgt / totalBgt) * 100).toFixed(2) : '0.00';
+      const surplusPct = totalBgt > 0 ? ((surplusBgt / totalBgt) * 100).toFixed(2) : '0.00';
+
+      const isSpecificDept = (selectedDept !== 'ALL');
+      document.getElementById('bgtCardTitle1').innerText = isSpecificDept ? 'งบจัดสรรรวมของหน่วยงาน' : 'กรอบงบประมาณรวมทั้งสิ้น';
+      document.getElementById('kpiMasterBgt').innerText = totalBgt.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' บาท';
+      document.getElementById('bgtCardSub1').innerText = isSpecificDept ? '(Allocated Budget: 100%)' : '(Master Budget: 100%)';
+
+      document.getElementById('bgtCardTitle2').innerText = isSpecificDept ? 'เบิกจ่ายจริงของหน่วยงาน' : 'งบประมาณเบิกจ่ายจริงรวม';
+      document.getElementById('kpiSpentBgt').innerText = spentBgt.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' บาท';
+      document.getElementById('bgtCardSub2').innerText = `(เบิกจ่ายแล้ว ${spentPct}%)`;
+
+      document.getElementById('bgtCardTitle3').innerText = isSpecificDept ? 'งบประมาณคงเหลือของหน่วยงาน' : 'งบประมาณคงเหลือจากการดำเนินงาน';
+      document.getElementById('kpiSurplus').innerText = surplusBgt.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' บาท';
+      document.getElementById('bgtCardSub3').innerText = `(คงเหลือ ${surplusPct}%)`;
+
+      renderCompletedProjects(res.completedProjectsList || []);
+      renderOnTrackProjects(res.onTrackProjectsList || []);
+      renderPendingSubmissions(res.pendingSubmissionsList || []);
+      renderSdgChart(res.sdgDistribution || { labels: [], values: [], colors: [] });
+    } else {
+      if (purchasingSection) purchasingSection.classList.remove('d-none');
+      if (delaySection) delaySection.classList.add('d-none');
+      if (sdgChartCard) sdgChartCard.classList.add('d-none');
+      if (overviewRightCards) overviewRightCards.classList.add('d-none');
+      if (singleProjectFilesCard) singleProjectFilesCard.classList.remove('d-none');
+
+      let projHeaderCard = document.getElementById('singleProjectHeaderCard');
+      if (!projHeaderCard && teamBox) {
+        projHeaderCard = document.createElement('div');
+        projHeaderCard.id = 'singleProjectHeaderCard';
+        projHeaderCard.className = 'card p-3 mb-3 border-0 shadow-sm bg-white border-start border-4 border-primary';
+        teamBox.parentNode.insertBefore(projHeaderCard, teamBox);
+      }
+      if (projHeaderCard) {
+        projHeaderCard.classList.remove('d-none');
+        projHeaderCard.innerHTML = `
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 mb-1" style="font-size: 0.75rem;">
+                <i class="bi bi-folder2-open me-1"></i>${res.singleProjectId || ''}
+              </span>
+              <h5 class="fw-bold text-dark mb-0" style="font-size: 1.15rem; line-height: 1.4;">
+                ${res.singleProjectName || ''}
+              </h5>
+            </div>
+            <div>
+              <span class="badge bg-light text-secondary border px-2 py-1 small">
+                <i class="bi bi-calendar3 me-1"></i>รอบเดือน: ${res.asOfSelectedMonth || 'ทั้งหมด'}
+              </span>
+            </div>
+          </div>
+        `;
+      }
+
+      if (res.selectedTeam && teamBox) {
+        teamBox.classList.remove('d-none');
+        document.getElementById('teamPrimary').innerHTML = `<strong>ผู้รับผิดชอบหลัก:</strong> ${res.selectedTeam.primaryResp || '-'}<br><span class="text-muted">${res.selectedTeam.primaryEmail || ''}</span>`;
+        document.getElementById('teamCo1').innerHTML = `<strong>ผู้รับผิดชอบรอง (1):</strong> ${res.selectedTeam.coName1 || '-'}<br><span class="text-muted">${res.selectedTeam.coEmail1 || ''}</span>`;
+        document.getElementById('teamCo2').innerHTML = `<strong>ผู้รับผิดชอบรอง (2):</strong> ${res.selectedTeam.coName2 || '-'}<br><span class="text-muted">${res.selectedTeam.coEmail2 || ''}</span>`;
+      }
+
+      if (res.singleProjectMetrics) {
+        document.getElementById('cardTitle1').innerText = 'สถานะโครงการ';
+        document.getElementById('kpiVal1').innerText = res.singleProjectMetrics.statusText;
+        document.getElementById('kpiSub1').innerText = '(Current Status)';
+
+        document.getElementById('cardTitle2').innerText = 'ผลการดำเนินงานสะสม';
+        document.getElementById('kpiVal2').innerText = res.singleProjectMetrics.currentAct + '%';
+        document.getElementById('kpiSub2').innerText = '(Actual Progress)';
+
+        document.getElementById('cardTitle3').innerText = 'เร็วกว่าแผน';
+        document.getElementById('kpiVal3').innerText = res.singleProjectMetrics.aheadDiff > 0 ? ('+' + res.singleProjectMetrics.aheadDiff + '%') : '0%';
+        document.getElementById('kpiSub3').innerText = '(Ahead of Plan)';
+
+        document.getElementById('cardTitle4').innerText = 'ช้ากว่าแผน';
+        document.getElementById('kpiVal4').innerText = res.singleProjectMetrics.delayDiff > 0 ? ('-' + res.singleProjectMetrics.delayDiff + '%') : '0%';
+        document.getElementById('kpiSub4').innerText = '(Behind Plan)';
+
+        document.getElementById('cardTitle5').innerText = 'สัดส่วนเบิกจ่าย';
+        const pBgt = res.singleProjectMetrics.budget || 0;
+        const pSpent = res.singleProjectMetrics.spent || 0;
+        const pSpentPct = pBgt > 0 ? ((pSpent / pBgt) * 100).toFixed(2) : '0.00';
+        document.getElementById('kpiVal5').innerText = pSpentPct + '%';
+        document.getElementById('kpiSub5').innerText = '(Burn Rate)';
+
+        const pSurplus = res.singleProjectMetrics.surplus || 0;
+        const pSurplusPct = pBgt > 0 ? ((pSurplus / pBgt) * 100).toFixed(2) : '0.00';
+
+        document.getElementById('bgtCardTitle1').innerText = 'วงเงินงบประมาณที่ได้รับอนุมัติ';
+        document.getElementById('kpiMasterBgt').innerText = pBgt.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' บาท';
+        document.getElementById('bgtCardSub1').innerText = '(Allocated Budget: 100%)';
+
+        document.getElementById('bgtCardTitle2').innerText = 'เบิกจ่ายจริงของโครงการ';
+        document.getElementById('kpiSpentBgt').innerText = pSpent.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' บาท';
+        document.getElementById('bgtCardSub2').innerText = `(เบิกจ่ายแล้ว ${pSpentPct}%)`;
+
+        document.getElementById('bgtCardTitle3').innerText = 'งบประมาณคงเหลือของโครงการ';
+        document.getElementById('kpiSurplus').innerText = pSurplus.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' บาท';
+        document.getElementById('bgtCardSub3').innerText = `(คงเหลือ ${pSurplusPct}%)`;
+      }
+
+      renderSingleProjectSdgs(res.singleProjectSdgs || []);
+
+      const imgContainer = document.getElementById('latestImageContainer');
+      if (imgContainer) {
+        if (res.latestActivityImageUrl) {
+          const directImgSrc = getDirectDriveImageUrl(res.latestActivityImageUrl);
+          const curAsOf = res.asOfSelectedMonth || '';
+          const imgMonth = res.latestActivityImageMonth || '';
+          
+          let badgeHtml = '';
+          if (imgMonth && curAsOf && (imgMonth === curAsOf || curAsOf.includes(imgMonth))) {
+            badgeHtml = `<div class="mt-1"><span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 small"><i class="bi bi-camera me-1"></i>ภาพกิจกรรมประจำเดือน ${imgMonth}</span></div>`;
+          } else if (imgMonth) {
+            badgeHtml = `<div class="mt-1"><span class="badge bg-info-subtle text-primary border border-info-subtle px-2 py-1 small"><i class="bi bi-clock-history me-1"></i>ภาพกิจกรรมล่าสุด (จากรอบเดือน ${imgMonth})</span></div>`;
+          }
+
+          imgContainer.innerHTML = `
+            <a href="${res.latestActivityImageUrl}" target="_blank">
+              <img src="${directImgSrc}" class="img-fluid rounded border shadow-sm" style="width: 100%; height: auto; max-height: 450px; object-fit: contain;" title="คลิกเพื่อดูรูปขนาดใหญ่">
+            </a>
+            ${badgeHtml}
+          `;
+        } else {
+          imgContainer.innerHTML = '<p class="text-muted small py-3 border rounded bg-light mb-0"><i class="bi bi-image text-secondary me-1"></i>ยังไม่มีภาพถ่ายกิจกรรมจนถึงรอบเดือนนี้</p>';
+        }
+      }
+
+      const summaryBox = document.getElementById('singleMonthlySummaryBox');
+      if (summaryBox) {
+        summaryBox.innerText = res.singleProjectSummary ? `"${res.singleProjectSummary}"` : '- ไม่มีข้อความสรุปผลงานในรอบนี้ -';
+      }
+
+      renderFiles(res.files || []);
+    }
+
+    const expTbody = document.getElementById('projectExpensesTableBody');
+    if (expTbody) {
+      if (!res.projectExpenses || res.projectExpenses.length === 0) {
+        expTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">ยังไม่มีรายการจัดซื้อจัดจ้างในโครงการนี้</td></tr>';
+      } else {
+        expTbody.innerHTML = res.projectExpenses.map(e => `
+          <tr>
+            <td class="fw-bold bg-light">${e.month}</td>
+            <td>${e.itemName}</td>
+            <td>${e.approvedBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })} บ.</td>
+            <td class="text-danger fw-bold">${e.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} บ.</td>
+            <td class="text-success fw-bold">${e.savings.toLocaleString('en-US', { minimumFractionDigits: 2 })} บ.</td>
+            <td><span class="badge ${e.status === 'ตรวจรับแล้ว' ? 'bg-success' : 'bg-secondary'}">${e.status}</span></td>
+            <td><span class="badge ${e.disburseStatus === 'วางฎีกาแล้ว' ? 'bg-primary' : 'bg-secondary'}">${e.disburseStatus}</span></td>
+            <td>${e.docUrl ? `<a href="${e.docUrl}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark-check"></i> ดูเอกสาร</a>` : '-'}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    const delayTbody = document.getElementById('delayTableBody');
+    if (delayTbody) {
+      const delayedList = (res.projectStatusList || []).filter(p => p.status === 'Delayed');
+      if (delayedList.length === 0) {
+        delayTbody.innerHTML = '<tr><td colspan="7" class="text-center text-success py-3"><i class="bi bi-check-circle me-1"></i> ทุกโครงการดำเนินงานเป็นไปตามแผนงาน</td></tr>';
+      } else {
+        delayTbody.innerHTML = delayedList.map(p => `
+            <tr>
+              <td class="fw-bold">${p.id}</td>
+              <td><a class="clickable-project text-dark" onclick="drillDownToProject('${p.id}')">${p.name}</a></td>
+              <td>${p.plan}%</td>
+              <td>${p.act}%</td>
+              <td class="text-danger fw-bold">${p.diff}%</td>
+              <td><span class="badge bg-danger">Delayed</span></td>
+              <td class="text-danger small">${p.delayReason || 'ไม่ได้ระบุสาเหตุ'}</td>
+            </tr>
+          `).join('');
+      }
+    }
+
+    renderCharts(res);
+  }
+
+  function renderSingleProjectSdgs(sdgs) {
+    const box = document.getElementById('singleProjectSdgContainer');
+    if (!box) return;
+    if (!sdgs || sdgs.length === 0) {
+      box.innerHTML = '<p class="text-muted small mb-0 py-1">- ไม่ได้ระบุเป้าหมาย SDGs -</p>';
+      return;
+    }
+    box.innerHTML = sdgs.map(s => `
+      <div class="p-2 mb-2 rounded bg-white border-start border-4 shadow-sm" style="border-left-color: ${s.color} !important;">
+        <div class="d-flex align-items-center mb-1">
+          <span class="badge text-white me-2 px-2 py-1" style="background-color: ${s.color}; font-size: 0.75rem;">
+            ${s.sdgId}
+          </span>
+        </div>
+        <div class="text-secondary small" style="font-size: 0.78rem; line-height: 1.35;">
+          ${s.desc}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderMasterDocs(docs) {
+    const box = document.getElementById('masterDocsListContent');
+    if (!box) return;
+    if (!docs || docs.length === 0) {
+      box.innerHTML = '<p class="text-muted small text-center py-3 mb-0">ยังไม่มีเอกสารงบประมาณโครงการใหญ่ในระบบ</p>';
+      return;
+    }
+    box.innerHTML = docs.map(d => {
+      const fileName = String(d.fileName || d.docName || '');
+      const isPdf = fileName.toLowerCase().endsWith('.pdf');
+      const iconClass = isPdf ? 'bi-file-earmark-pdf text-danger' : 'bi-file-earmark-word text-primary';
+      const latestBadge = d.isLatest ? '<span class="badge bg-danger ms-1" style="font-size:0.65rem;">ล่าสุด (ยึดฉบับนี้)</span>' : '';
+      return `
+        <div class="p-2 mb-2 border rounded bg-light d-flex justify-content-between align-items-center">
+          <div class="text-truncate me-2" style="max-width: 75%;">
+            <div class="fw-bold small text-truncate">
+              <i class="bi ${iconClass} me-1"></i> ${d.docName} ${latestBadge}
+            </div>
+            <small class="text-muted" style="font-size: 0.7rem;">หมวด: ${d.category} | อัปเดต: ${d.uploadedAt}</small>
+          </div>
+          <a href="${d.url}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" title="เปิดดู/ดาวน์โหลดเพื่อนำไปแนบ">
+            <i class="bi bi-download"></i> ใช้ไฟล์
+          </a>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderCompletedProjects(list) {
+    const box = document.getElementById('completedListContent');
+    if (!list || list.length === 0) {
+      box.innerHTML = '<p class="text-muted small text-center py-2 mb-0">ยังไม่มีโครงการที่ดำเนินการแล้วเสร็จ</p>';
+      return;
+    }
+    box.innerHTML = list.map(item => `
+      <div class="p-2 mb-2 border rounded bg-light border-start border-success border-4" style="cursor: pointer;" onclick="drillDownToProject('${item.id}')" title="คลิกเพื่อดูรายละเอียดโครงการ">
+        <div class="fw-bold text-success mb-1 clickable-project small text-truncate">[${item.id}] ${item.name}</div>
+        <div class="d-flex justify-content-between text-muted" style="font-size: 0.72rem;">
+          <span>ผล: 100%</span>
+          <span>งบ: ${item.budget.toLocaleString('en-US')} บ. | เบิก: ${item.spent.toLocaleString('en-US')} บ.</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderOnTrackProjects(list) {
+    const box = document.getElementById('onTrackListContent');
+    if (!list || list.length === 0) {
+      box.innerHTML = '<p class="text-muted small text-center py-2 mb-0">ไม่มีโครงการตามแผนในขณะนี้</p>';
+      return;
+    }
+    box.innerHTML = list.map(item => `
+      <div class="p-2 mb-2 border rounded bg-light border-start border-primary border-4" style="cursor: pointer;" onclick="drillDownToProject('${item.id}')" title="คลิกเพื่อดูรายละเอียดโครงการ">
+        <div class="fw-bold text-primary mb-1 clickable-project small text-truncate">[${item.id}] ${item.name}</div>
+        <div class="d-flex justify-content-between text-muted" style="font-size: 0.72rem;">
+          <span>ผล: ${item.act}% (แผน ${item.plan}%)</span>
+          <span>งบ: ${item.budget.toLocaleString('en-US')} บ. | เบิก: ${item.spent.toLocaleString('en-US')} บ.</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderPendingSubmissions(list) {
+    const box = document.getElementById('pendingListContent');
+    if (!list || list.length === 0) {
+      box.innerHTML = '<p class="text-success small text-center py-2 mb-0"><i class="bi bi-check-circle me-1"></i> ทุกโครงการส่งรายงานครบถ้วนแล้ว</p>';
+      return;
+    }
+    box.innerHTML = list.map(item => `
+      <div class="p-2 mb-1 border rounded bg-white small" style="cursor: pointer;" onclick="drillDownToProject('${item.id}')" title="คลิกเพื่อดูรายละเอียดโครงการ">
+        <div class="fw-bold text-danger text-truncate clickable-project">[${item.id}] ${item.name}</div>
+        <div class="text-muted" style="font-size: 0.72rem;">${item.resp} (${item.email})</div>
+      </div>
+    `).join('');
+  }
+
+  function renderFiles(files) {
+    const box = document.getElementById('singleFilesContent');
+    if (!files || files.length === 0) {
+      box.innerHTML = '<p class="text-muted small text-center py-4">ยังไม่มีเอกสารหรือรายงาน</p>';
+      return;
+    }
+    box.innerHTML = files.map(f => `
+      <div class="p-2 mb-2 border rounded bg-light d-flex justify-content-between align-items-center">
+        <div><span class="badge bg-secondary me-1">${f.month}</span><small class="fw-bold">${f.name}</small></div>
+        <a href="${f.url}" target="_blank" class="btn btn-sm btn-outline-primary">เปิดดู</a>
+      </div>
+    `).join('');
+  }
+</script>

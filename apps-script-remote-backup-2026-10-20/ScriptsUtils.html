@@ -1,0 +1,182 @@
+<script>
+  // ตัวแปรและค่าคงที่ส่วนกลางที่ใช้งานร่วมกันทุกหน้า
+  const fiscalMonths = ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'];
+  const calendarMonths = [
+    { name: 'ม.ค.', val: 1 }, { name: 'ก.พ.', val: 2 }, { name: 'มี.ค.', val: 3 },
+    { name: 'เม.ย.', val: 4 }, { name: 'พ.ค.', val: 5 }, { name: 'มิ.ย.', val: 6 },
+    { name: 'ก.ค.', val: 7 }, { name: 'ส.ค.', val: 8 }, { name: 'ก.ย.', val: 9 },
+    { name: 'ต.ค.', val: 10 }, { name: 'พ.ย.', val: 11 }, { name: 'ธ.ค.', val: 12 }
+  ];
+
+  let masterData = { projects: [], departments: [], totalMasterBudget: 0 };
+  let currentContextData = null;
+  let stagedFilesQueue = [];
+
+  function formatCurrencyInput(input) {
+    let value = input.value.replace(/,/g, '');
+    if (value === '') return;
+    if (!isNaN(value)) {
+      const parts = value.split('.');
+      parts[0] = Number(parts[0]).toLocaleString('en-US');
+      input.value = parts.join('.');
+    }
+  }
+
+  function getCleanNumber(val) {
+    if (!val) return 0;
+    return Number(String(val).replace(/,/g, '')) || 0;
+  }
+
+  const toBase64 = f => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.readAsDataURL(f);
+    r.onload = () => res(r.result);
+    r.onerror = e => rej(e);
+  });
+
+  function compressImageFile(file, maxWidth, maxHeight, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = event => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+          } else {
+            if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(blob => {
+            if (!blob) { reject(new Error('Canvas to Blob failed')); return; }
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: 'image/jpeg', lastModified: Date.now() });
+            resolve(compressedFile);
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = error => reject(error);
+      };
+      reader.onerror = error => reject(error);
+    });
+  }
+
+  function initYearDropdowns() {
+    const yearSelectors = ['dashYear', 'matrixYear', 'actYear', 'setupYear', 'adminBudgetYear', 'adminNewFiscalYear', 'docFiscalYear'];
+    const currentYear = 2569;
+    let optionsHtml = '';
+    for (let y = 2565; y <= 2580; y++) {
+      optionsHtml += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y} (${y - 543})</option>`;
+    }
+    yearSelectors.forEach(id => {
+      const elem = document.getElementById(id);
+      if (elem && elem.tagName === 'SELECT') elem.innerHTML = optionsHtml;
+      else if (elem && elem.tagName === 'INPUT') elem.value = currentYear;
+    });
+  }
+
+  function initPlanMonthDropdowns() {
+    const sSel = document.getElementById('planStartMonth');
+    const eSel = document.getElementById('planEndMonth');
+    if (!sSel || !eSel) return;
+    sSel.innerHTML = calendarMonths.map(m => `<option value="${m.val}">${m.name}</option>`).join('');
+    eSel.innerHTML = calendarMonths.map(m => `<option value="${m.val}">${m.name}</option>`).join('');
+    sSel.value = 5;
+    eSel.value = 10;
+  }
+
+  function populateSelect(elemId, hasAll) {
+    const select = document.getElementById(elemId);
+    if (!select) return;
+    select.innerHTML = hasAll ? '<option value="ALL">-- แสดงภาพรวมทั้งหมด --</option>' : '';
+    if (masterData && masterData.projects) {
+      masterData.projects.forEach(i => {
+        select.innerHTML += `<option value="${i.id}">${i.id} - ${i.name}</option>`;
+      });
+    }
+  }
+
+  function updateDeptDropdown() {
+    const selectDash = document.getElementById('dashDept');
+    const selectAdmin = document.getElementById('adminNewDeptSelect');
+    
+    // เก็บรวบรวมรายชื่อหน่วยงานแบบไม่ซ้ำ
+    const deptSet = new Set();
+
+    // 1. ดึงจากรายการ masterData.departments (รองรับทั้ง object {name}, {deptName}, หรือ string)
+    if (masterData && masterData.departments && Array.isArray(masterData.departments)) {
+      masterData.departments.forEach(d => {
+        let name = '';
+        if (typeof d === 'string') name = d;
+        else if (typeof d === 'object' && d !== null) name = d.name || d.deptName || d.department || d[0] || '';
+        
+        name = String(name).trim();
+        if (name && name !== 'ALL' && name !== '-- ทุกหน่วยงาน --') {
+          deptSet.add(name);
+        }
+      });
+    }
+
+    // 2. ดึงเสริมจากรายชื่อโครงการใน masterData.projects ป้องกันกรณีตารางหน่วยงานว่าง
+    if (masterData && masterData.projects && Array.isArray(masterData.projects)) {
+      masterData.projects.forEach(p => {
+        let pDept = '';
+        if (typeof p === 'object' && p !== null) {
+          pDept = p.dept || p.department || p.deptName || '';
+        }
+        pDept = String(pDept).trim();
+        if (pDept && pDept !== 'ALL' && pDept !== '-') {
+          deptSet.add(pDept);
+        }
+      });
+    }
+
+    const deptList = Array.from(deptSet).sort();
+
+    // ใส่ลงใน dashDept (หน้าแดชบอร์ด)
+    if (selectDash) {
+      const currentDashVal = selectDash.value;
+      selectDash.innerHTML = '<option value="ALL">-- ทุกหน่วยงาน --</option>';
+      deptList.forEach(deptName => {
+        selectDash.innerHTML += `<option value="${deptName}">${deptName}</option>`;
+      });
+      if (currentDashVal && (currentDashVal === 'ALL' || deptSet.has(currentDashVal))) {
+        selectDash.value = currentDashVal;
+      }
+    }
+
+    // ใส่ลงใน adminNewDeptSelect (หน้าแอดมิน)
+    if (selectAdmin) {
+      const currentAdminVal = selectAdmin.value;
+      selectAdmin.innerHTML = '<option value="">-- เลือกหน่วยงาน --</option>';
+      deptList.forEach(deptName => {
+        selectAdmin.innerHTML += `<option value="${deptName}">${deptName}</option>`;
+      });
+      if (currentAdminVal && deptSet.has(currentAdminVal)) {
+        selectAdmin.value = currentAdminVal;
+      }
+    }
+  }
+
+  function updateDropdowns() {
+    populateSelect('dashRefId', true);
+    populateSelect('actRefId', false);
+    populateSelect('setupRefId', false);
+  }
+
+  function updateMatrixRefDropdown() {
+    const select = document.getElementById('matrixRefId');
+    if (!select) return;
+    select.innerHTML = '';
+    if (masterData && masterData.projects) {
+      masterData.projects.forEach(i => {
+        select.innerHTML += `<option value="${i.id}">${i.id} - ${i.name}</option>`;
+      });
+    }
+  }
+</script>

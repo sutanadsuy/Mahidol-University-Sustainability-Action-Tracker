@@ -1,0 +1,483 @@
+<script>
+  const SDG_LIST = [
+    { id: 'SDG 1', name: 'SDG 1: ขจัดความยากจน' },
+    { id: 'SDG 2', name: 'SDG 2: ยุติความหิวโหย' },
+    { id: 'SDG 3', name: 'SDG 3: สุขภาพและความเป็นอยู่ที่ดี' },
+    { id: 'SDG 4', name: 'SDG 4: การศึกษาที่มีคุณภาพ' },
+    { id: 'SDG 5', name: 'SDG 5: ความเท่าเทียมทางเพศ' },
+    { id: 'SDG 6', name: 'SDG 6: น้ำสะอาดและสุขอนามัย' },
+    { id: 'SDG 7', name: 'SDG 7: พลังงานสะอาดที่ทุกคนเข้าถึงได้' },
+    { id: 'SDG 8', name: 'SDG 8: งานที่มีคุณค่าและการเติบโตทางเศรษฐกิจ' },
+    { id: 'SDG 9', name: 'SDG 9: อุตสาหกรรม นวัตกรรม และโครงสร้างพื้นฐาน' },
+    { id: 'SDG 10', name: 'SDG 10: ลดความเหลื่อมล้ำ' },
+    { id: 'SDG 11', name: 'SDG 11: เมืองและชุมชนที่ยั่งยืน' },
+    { id: 'SDG 12', name: 'SDG 12: การบริโภคและการผลิตที่ยั่งยืน' },
+    { id: 'SDG 13', name: 'SDG 13: การรับมือการเปลี่ยนแปลงสภาพภูมิอากาศ' },
+    { id: 'SDG 14', name: 'SDG 14: ทรัพยากรทางทะเลและชายฝั่ง' },
+    { id: 'SDG 15', name: 'SDG 15: ระบบนิเวศบนบก' },
+    { id: 'SDG 16', name: 'SDG 16: สังคมสงบสุข ยุติธรรม และสถาบันที่เข้มแข็ง' },
+    { id: 'SDG 17', name: 'SDG 17: หุ้นส่วนความร่วมมือเพื่อการพัฒนาที่ยั่งยืน' }
+  ];
+
+  function addMasterProcureRow(data = null) {
+    const container = document.getElementById('masterProcureContainer');
+    const div = document.createElement('div');
+    div.className = 'mproc-row row g-2 align-items-center mb-2';
+    const initialBgt = data ? Number(data.budget).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '';
+
+    div.innerHTML = `
+      <div class="col-md-1 text-center" style="max-width: 45px;">
+        <span class="badge bg-secondary mproc-no">1</span>
+      </div>
+      <div class="col-md-7">
+        <input type="text" class="form-control form-control-sm mproc-name" placeholder="ชื่อรายการ เช่น ค่าเบี้ยประชุม, ค่าจ้าง Artwork" value="${data ? data.name : ''}" required>
+      </div>
+      <div class="col-md-3">
+        <input type="text" class="form-control form-control-sm mproc-bgt text-end" placeholder="0.00" value="${initialBgt}" oninput="formatCurrencyInput(this); calcMasterProcureTotal();" required>
+      </div>
+      <div class="col-md-1 text-end" style="max-width: 50px;">
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.mproc-row').remove(); updateMProcRowNumbers(); calcMasterProcureTotal();"><i class="bi bi-trash"></i></button>
+      </div>
+    `;
+    container.appendChild(div);
+    updateMProcRowNumbers();
+    calcMasterProcureTotal();
+  }
+
+  function updateMProcRowNumbers() {
+    document.querySelectorAll('#masterProcureContainer .mproc-row').forEach((row, idx) => {
+      const badge = row.querySelector('.mproc-no');
+      if (badge) badge.innerText = (idx + 1);
+    });
+  }
+
+  function calcMasterProcureTotal() {
+    let total = 0;
+    document.querySelectorAll('.mproc-row').forEach(row => {
+      total += getCleanNumber(row.querySelector('.mproc-bgt').value);
+    });
+    
+    const totalLabel = document.getElementById('masterProcureTotalLabel');
+    totalLabel.innerText = total.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' บาท';
+
+    const refId = document.getElementById('setupRefId').value;
+    const found = masterData.projects.find(p => p.id === refId);
+    const allocatedBudget = found ? Number(found.budget) || 0 : 0;
+
+    const reasonBox = document.getElementById('savingsReasonBox');
+    const overAlert = document.getElementById('overBudgetAlertBox');
+    const overDiff = document.getElementById('overBudgetDiffLabel');
+    const saveBtn = document.getElementById('planSaveBtn');
+
+    if (allocatedBudget > 0 && total > allocatedBudget) {
+      const diff = total - allocatedBudget;
+      totalLabel.classList.remove('text-primary');
+      totalLabel.classList.add('text-danger');
+      
+      overDiff.innerText = `(เกินกรอบงบประมาณ ${diff.toLocaleString('en-US', { minimumFractionDigits: 2 })} บาท)`;
+      overAlert.classList.remove('d-none');
+      reasonBox.classList.add('d-none');
+      saveBtn.disabled = true;
+    } else {
+      totalLabel.classList.remove('text-danger');
+      totalLabel.classList.add('text-primary');
+      overAlert.classList.add('d-none');
+      saveBtn.disabled = false;
+
+      if (allocatedBudget > 0 && total < allocatedBudget) {
+        reasonBox.classList.remove('d-none');
+      } else {
+        reasonBox.classList.add('d-none');
+      }
+    }
+  }
+
+  function addSdgAlignmentRow(sdgId = '', desc = '') {
+    const container = document.getElementById('sdgAlignmentContainer');
+    const div = document.createElement('div');
+    div.className = 'sdg-row row g-2 align-items-center mb-2';
+
+    let optionsHtml = '<option value="">-- เลือกเป้าหมาย SDG --</option>';
+    SDG_LIST.forEach(s => {
+      optionsHtml += `<option value="${s.id}" ${s.id === sdgId ? 'selected' : ''}>${s.name}</option>`;
+    });
+
+    div.innerHTML = `
+      <div class="col-md-1 text-center" style="max-width: 45px;">
+        <span class="badge bg-primary sdg-no">1</span>
+      </div>
+      <div class="col-md-4">
+        <select class="form-select form-select-sm sdg-select" required>
+          ${optionsHtml}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <input type="text" class="form-control form-control-sm sdg-desc" placeholder="เช่น ส่งเสริมการสัญจรปลอดภัย, การคัดแยกขยะในพื้นที่" value="${desc || ''}">
+      </div>
+      <div class="col-md-1 text-end" style="max-width: 50px;">
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.sdg-row').remove(); updateSdgRowNumbers();"><i class="bi bi-trash"></i></button>
+      </div>
+    `;
+    container.appendChild(div);
+    updateSdgRowNumbers();
+  }
+
+  function updateSdgRowNumbers() {
+    document.querySelectorAll('#sdgAlignmentContainer .sdg-row').forEach((row, idx) => {
+      const badge = row.querySelector('.sdg-no');
+      if (badge) badge.innerText = (idx + 1);
+    });
+  }
+
+  function createPlanRowHtml(mName, yearVal, rowData = null) {
+    const pDraft = rowData ? (rowData.draftPlan || '') : '';
+    const pAppr = rowData ? (rowData.approvalPlan || '') : '';
+    const pProc = rowData ? Number(rowData.procurePlan).toLocaleString('en-US') : '';
+    const pExec = rowData ? (rowData.executePlan || '') : '';
+    const pDisb = rowData ? (rowData.disbursePlan || '') : '';
+    const pRepo = rowData ? (rowData.reportPlan || '') : '';
+
+    return `
+      <tr data-month="${mName}" data-year="${yearVal}">
+        <td class="fw-bold bg-light">${mName} ${yearVal}</td>
+        <td><input type="number" class="form-control form-control-sm p-draft" step="0.01" value="${pDraft}" oninput="calcPlanTableSummary()"></td>
+        <td><input type="number" class="form-control form-control-sm p-appr" step="0.01" value="${pAppr}" oninput="calcPlanTableSummary()"></td>
+        <td><input type="text" class="form-control form-control-sm p-proc text-end" value="${pProc}" oninput="formatCurrencyInput(this); calcPlanTableSummary()"></td>
+        <td><input type="number" class="form-control form-control-sm p-exec" step="0.01" value="${pExec}" oninput="calcPlanTableSummary()"></td>
+        <td><input type="number" class="form-control form-control-sm p-disb" step="0.01" value="${pDisb}" oninput="calcPlanTableSummary()"></td>
+        <td><input type="number" class="form-control form-control-sm p-repo" step="0.01" value="${pRepo}" oninput="calcPlanTableSummary()"></td>
+      </tr>
+    `;
+  }
+
+  function prependMonthRow() {
+    const firstRow = document.querySelector('#dynamicPlanTbody tr');
+    if (!firstRow) return;
+
+    const firstMonthName = firstRow.getAttribute('data-month');
+    let firstYear = Number(firstRow.getAttribute('data-year'));
+    let firstMonthVal = calendarMonths.find(m => m.name === firstMonthName).val;
+
+    firstMonthVal--;
+    if (firstMonthVal < 1) {
+      firstMonthVal = 12;
+      firstYear--;
+    }
+
+    const prevMonthName = calendarMonths.find(m => m.val === firstMonthVal).name;
+    const newRowHtml = createPlanRowHtml(prevMonthName, firstYear);
+    
+    const tbody = document.getElementById('dynamicPlanTbody');
+    tbody.insertAdjacentHTML('afterbegin', newRowHtml);
+
+    document.getElementById('planStartMonth').value = firstMonthVal;
+    document.getElementById('planStartYear').value = firstYear;
+    calcPlanTableSummary();
+  }
+
+  function appendMonthRow() {
+    const rows = document.querySelectorAll('#dynamicPlanTbody tr');
+    if (rows.length === 0) return;
+
+    const lastRow = rows[rows.length - 1];
+    const lastMonthName = lastRow.getAttribute('data-month');
+    let lastYear = Number(lastRow.getAttribute('data-year'));
+    let lastMonthVal = calendarMonths.find(m => m.name === lastMonthName).val;
+
+    lastMonthVal++;
+    if (lastMonthVal > 12) {
+      lastMonthVal = 1;
+      lastYear++;
+    }
+
+    const nextMonthName = calendarMonths.find(m => m.val === lastMonthVal).name;
+    const newRowHtml = createPlanRowHtml(nextMonthName, lastYear);
+    
+    const tbody = document.getElementById('dynamicPlanTbody');
+    tbody.insertAdjacentHTML('beforeend', newRowHtml);
+
+    document.getElementById('planEndMonth').value = lastMonthVal;
+    document.getElementById('planEndYear').value = lastYear;
+    calcPlanTableSummary();
+  }
+
+  function generateDynamicPlanTable(existingPlanList = null) {
+    const sMonth = Number(document.getElementById('planStartMonth').value);
+    const sYear = Number(document.getElementById('planStartYear').value);
+    const eMonth = Number(document.getElementById('planEndMonth').value);
+    const eYear = Number(document.getElementById('planEndYear').value);
+
+    const startVal = (sYear * 12) + sMonth;
+    const endVal = (eYear * 12) + eMonth;
+
+    if (endVal < startVal) {
+      Swal.fire({ icon: 'error', title: 'ช่วงเวลาไม่ถูกต้อง', text: 'เดือน/ปี สิ้นสุด ต้องอยู่หลังหรือตรงกับ เดือน/ปี เริ่มต้น' });
+      return;
+    }
+
+    const tbody = document.getElementById('dynamicPlanTbody');
+    tbody.innerHTML = '';
+
+    let curMonth = sMonth;
+    let curYear = sYear;
+
+    while ((curYear * 12 + curMonth) <= endVal) {
+      const mName = calendarMonths.find(m => m.val === curMonth).name;
+      let foundRow = null;
+      if (existingPlanList) {
+        foundRow = existingPlanList.find(item => item.actualYear === curYear && item.monthVal === curMonth);
+      }
+
+      tbody.innerHTML += createPlanRowHtml(mName, curYear, foundRow);
+      curMonth++;
+      if (curMonth > 12) {
+        curMonth = 1;
+        curYear++;
+      }
+    }
+
+    document.getElementById('planTableFooter').style.display = '';
+    document.getElementById('quickAddBtnsTop').style.setProperty('display', 'flex', 'important');
+    document.getElementById('quickAddBtnsBottom').style.setProperty('display', 'flex', 'important');
+    updatePlanBudgetDisplay();
+    calcPlanTableSummary();
+  }
+
+  function onPlanProjectSelected() {
+    updatePlanBudgetDisplay();
+    
+    const y = document.getElementById('setupYear').value;
+    const r = document.getElementById('setupRefId').value;
+    const statusEl = document.getElementById('planLoadingStatus');
+    
+    if (!r) {
+      document.getElementById('dynamicPlanTbody').innerHTML = '<tr><td colspan="7" class="text-muted py-3">กรุณาเลือกรายการโครงการด้านบน</td></tr>';
+      document.getElementById('masterProcureContainer').innerHTML = '';
+      document.getElementById('sdgAlignmentContainer').innerHTML = '';
+      document.getElementById('planTableFooter').style.display = 'none';
+      document.getElementById('quickAddBtnsTop').style.setProperty('display', 'none', 'important');
+      document.getElementById('quickAddBtnsBottom').style.setProperty('display', 'none', 'important');
+      if (statusEl) statusEl.innerHTML = '';
+      return;
+    }
+
+    // แสดงสถานะกำลังโหลด
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" role="status"></span> <small class="text-primary">กำลังโหลดข้อมูล...</small>';
+    }
+
+    google.script.run
+      .withSuccessHandler(res => {
+        // 1. เรนเดอร์รายการจัดซื้อจัดจ้าง
+        const mContainer = document.getElementById('masterProcureContainer');
+        mContainer.innerHTML = '';
+        if (res.masterProcureList && res.masterProcureList.length > 0) {
+          res.masterProcureList.forEach(item => addMasterProcureRow(item));
+        } else {
+          addMasterProcureRow();
+        }
+        document.getElementById('planSavingsReason').value = res.savingsReason || '';
+
+        // 2. เรนเดอร์เป้าหมาย SDGs
+        const sdgContainer = document.getElementById('sdgAlignmentContainer');
+        sdgContainer.innerHTML = '';
+        if (res.sdgList && res.sdgList.length > 0) {
+          res.sdgList.forEach(s => addSdgAlignmentRow(s.sdgId, s.desc));
+        } else {
+          addSdgAlignmentRow();
+        }
+
+        // 3. เรนเดอร์ตารางแผนงาน
+        if (res.hasData) {
+          document.getElementById('planStartMonth').value = res.startMonthVal;
+          document.getElementById('planStartYear').value = res.startYear;
+          document.getElementById('planEndMonth').value = res.endMonthVal;
+          document.getElementById('planEndYear').value = res.endYear;
+
+          generateDynamicPlanTable(res.planList);
+        } else {
+          document.getElementById('dynamicPlanTbody').innerHTML = '<tr><td colspan="7" class="text-muted py-3">โครงการนี้ยังไม่มีแผนงาน กรุณาระบุช่วงเวลาแล้วกด "สร้างตารางใหม่ตามช่วงเวลา" ด้านบน</td></tr>';
+          document.getElementById('planTableFooter').style.display = 'none';
+          document.getElementById('quickAddBtnsTop').style.setProperty('display', 'none', 'important');
+          document.getElementById('quickAddBtnsBottom').style.setProperty('display', 'none', 'important');
+        }
+
+        // โหลดเสร็จสิ้น: แสดงติ๊กถูกสีเขียว พร้อมวางแผน
+        if (statusEl) {
+          statusEl.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i>พร้อมวางแผน</span>';
+        }
+      })
+      .withFailureHandler(err => {
+        if (statusEl) {
+          statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle-fill me-1"></i>โหลดไม่สำเร็จ</span>';
+        }
+      })
+      .getExistingProjectPlan(y, r);
+  }
+
+  function updatePlanBudgetDisplay() {
+    const refId = document.getElementById('setupRefId').value;
+    const found = masterData.projects.find(p => p.id === refId);
+    const allocatedBudget = found ? Number(found.budget) || 0 : 0;
+    document.getElementById('planAllocatedBudgetLabel').innerText = allocatedBudget.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    calcPlanTableSummary();
+    calcMasterProcureTotal();
+  }
+
+  function calcPlanTableSummary() {
+    let sumDraft = 0, sumAppr = 0, sumProc = 0, sumExec = 0, sumDisb = 0, sumRepo = 0;
+
+    document.querySelectorAll('#dynamicPlanTbody tr').forEach(r => {
+      sumDraft += Number(r.querySelector('.p-draft')?.value) || 0;
+      sumAppr += Number(r.querySelector('.p-appr')?.value) || 0;
+      sumProc += getCleanNumber(r.querySelector('.p-proc')?.value);
+      sumExec += Number(r.querySelector('.p-exec')?.value) || 0;
+      sumDisb += Number(r.querySelector('.p-disb')?.value) || 0;
+      sumRepo += Number(r.querySelector('.p-repo')?.value) || 0;
+    });
+
+    document.getElementById('sum-draft').innerText = sumDraft.toFixed(2) + '%';
+    document.getElementById('sum-appr').innerText = sumAppr.toFixed(2) + '%';
+    document.getElementById('sum-proc').innerText = sumProc.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' บ.';
+    document.getElementById('sum-exec').innerText = sumExec.toFixed(2) + '%';
+    document.getElementById('sum-disb').innerText = sumDisb.toFixed(2) + '%';
+    document.getElementById('sum-repo').innerText = sumRepo.toFixed(2) + '%';
+
+    renderPercentValidation('chk-draft', sumDraft);
+    renderPercentValidation('chk-appr', sumAppr);
+    renderPercentValidation('chk-exec', sumExec);
+    renderPercentValidation('chk-disb', sumDisb);
+    renderPercentValidation('chk-repo', sumRepo);
+
+    const refId = document.getElementById('setupRefId').value;
+    const found = masterData.projects.find(p => p.id === refId);
+    const allocatedBudget = found ? Number(found.budget) || 0 : 0;
+
+    const procBadge = document.getElementById('chk-proc');
+    if (allocatedBudget === 0 && sumProc === 0) {
+      procBadge.innerHTML = `<span class="badge bg-secondary">ไม่ระบุงบ</span>`;
+    } else if (sumProc === allocatedBudget) {
+      procBadge.innerHTML = `<span class="badge bg-success">✔️ ครบตามกรอบงบ</span>`;
+    } else if (sumProc < allocatedBudget) {
+      const diff = allocatedBudget - sumProc;
+      procBadge.innerHTML = `<span class="badge bg-info text-dark">💡 ใช้น้อยกว่างบ (ประหยัด ${diff.toLocaleString('en-US', { minimumFractionDigits: 2 })} บ.)</span>`;
+    } else {
+      const over = sumProc - allocatedBudget;
+      procBadge.innerHTML = `<span class="badge bg-danger">❌ เกินกรอบงบ ${over.toLocaleString('en-US', { minimumFractionDigits: 2 })} บ.</span>`;
+    }
+  }
+
+  function renderPercentValidation(elemId, value) {
+    const badge = document.getElementById(elemId);
+    if (!badge) return;
+    if (value === 100) {
+      badge.innerHTML = `<span class="badge bg-success">✔️ ครบ 100%</span>`;
+    } else if (value === 0) {
+      badge.innerHTML = `<span class="badge bg-secondary">0%</span>`;
+    } else if (value < 100) {
+      badge.innerHTML = `<span class="badge bg-warning text-dark">⚠️ ${value.toFixed(1)}% (ยังไม่ครบ)</span>`;
+    } else {
+      badge.innerHTML = `<span class="badge bg-danger">❌ ${value.toFixed(1)}% (เกิน 100%)</span>`;
+    }
+  }
+
+  function saveAnnualPlanData() {
+    let totalProcureBudget = 0;
+    document.querySelectorAll('.mproc-row').forEach(row => {
+      totalProcureBudget += getCleanNumber(row.querySelector('.mproc-bgt').value);
+    });
+
+    const refId = document.getElementById('setupRefId').value;
+    const found = masterData.projects.find(p => p.id === refId);
+    const allocatedBudget = found ? Number(found.budget) || 0 : 0;
+
+    if (allocatedBudget > 0 && totalProcureBudget > allocatedBudget) {
+      Swal.fire({
+        icon: 'error',
+        title: 'ไม่สามารถบันทึกได้!',
+        text: `รวมวงเงินจัดซื้อจัดจ้าง (${totalProcureBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })} บาท) เกินกว่ากรอบงบประมาณที่ได้รับจัดสรร (${allocatedBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })} บาท) กรุณาตรวจสอบและปรับลดวงเงิน`,
+        confirmButtonColor: '#dc3545'
+      });
+      return;
+    }
+
+    const btn = document.getElementById('planSaveBtn');
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>กำลังบันทึก...';
+
+    Swal.fire({
+      title: 'กำลังบันทึกแผนงาน...',
+      text: 'กรุณารอสักครู่ ระบบกำลังประมวลผลข้อมูล',
+      allowOutsideClick: false,
+      didOpen: () => { Swal.showLoading(); }
+    });
+
+    const fiscalYear = document.getElementById('setupYear').value;
+    const submitterEmail = document.getElementById('setupSubmitterEmail').value;
+
+    const rows = document.querySelectorAll('#dynamicPlanTbody tr');
+    const payloadList = [];
+    rows.forEach(r => {
+      if (r.getAttribute('data-month')) {
+        payloadList.push({
+          refId, fiscalYear,
+          actualYear: r.getAttribute('data-year'),
+          month: r.getAttribute('data-month'),
+          draftPlan: r.querySelector('.p-draft').value,
+          approvalPlan: r.querySelector('.p-appr').value,
+          procurePlan: getCleanNumber(r.querySelector('.p-proc').value),
+          executePlan: r.querySelector('.p-exec').value,
+          disbursePlan: r.querySelector('.p-disb').value,
+          reportPlan: r.querySelector('.p-repo').value
+        });
+      }
+    });
+
+    const sMVal = document.getElementById('planStartMonth').value;
+    const sM = calendarMonths.find(m => m.val === Number(sMVal)).name;
+    const sY = document.getElementById('planStartYear').value;
+    const eMVal = document.getElementById('planEndMonth').value;
+    const eM = calendarMonths.find(m => m.val === Number(eMVal)).name;
+    const eY = document.getElementById('planEndYear').value;
+
+    const projectTimeline = {
+      refId, fiscalYear, submitterEmail,
+      startText: `${sM} ${sY}`,
+      endText: `${eM} ${eY}`
+    };
+
+    const masterProcureItems = [];
+    document.querySelectorAll('.mproc-row').forEach(row => {
+      const name = row.querySelector('.mproc-name').value;
+      const budget = getCleanNumber(row.querySelector('.mproc-bgt').value);
+      if (name && budget) {
+        masterProcureItems.push({ name, budget });
+      }
+    });
+    const savingsReason = document.getElementById('planSavingsReason').value;
+
+    const sdgAlignments = [];
+    document.querySelectorAll('.sdg-row').forEach(row => {
+      const sdgId = row.querySelector('.sdg-select').value;
+      const desc = row.querySelector('.sdg-desc').value.trim();
+      if (sdgId) {
+        sdgAlignments.push({ sdgId, desc });
+      }
+    });
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, confirmButtonColor: '#198754' });
+        loadDashboard();
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message, confirmButtonColor: '#dc3545' });
+      })
+      .saveAnnualPlan(payloadList, projectTimeline, masterProcureItems, savingsReason, sdgAlignments);
+  }
+</script>

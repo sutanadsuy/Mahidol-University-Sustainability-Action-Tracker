@@ -573,7 +573,8 @@ function getProjectMonthlyContext(fiscalYear, actualYear, refId, currentMonth) {
     const matchFY = String(f[3]).trim() === targetFY;
     const matchRef = String(f[2]).trim() === String(refId).trim();
     const monthStr = String(f[4] || '').trim();
-    const matchM = monthStr.includes(String(currentMonth).trim());
+    const monthName = String(currentMonth).trim();
+    const matchM = monthStr === `${monthName} ${String(actualYear).trim()}` || monthStr === monthName;
     return matchFY && matchRef && matchM;
   }).map(f => {
     let uploadDateStr = '';
@@ -587,9 +588,12 @@ function getProjectMonthlyContext(fiscalYear, actualYear, refId, currentMonth) {
       name: String(f[6]),
       type: String(f[5]),
       url: String(f[7]),
-      uploadedAt: uploadDateStr
+      uploadedAt: uploadDateStr,
+      uploadedBy: String(f[9] || '')
     };
   });
+
+  const attachmentHistory = getAttachmentHistory_(ss, fileData, targetFY, refId);
 
   return {
     steps,
@@ -600,6 +604,7 @@ function getProjectMonthlyContext(fiscalYear, actualYear, refId, currentMonth) {
     currentDelayReason,
     masterProcureItems,
     existingMonthFiles, // ส่งรายการไฟล์เดิมในเดือนนี้
+    attachmentHistory,
     stepWeights,
     lastAuditInfo,
     yearlyCompletedSteps,
@@ -615,7 +620,7 @@ function submitMonthlyActual(payload, expenseItems, generalFiles) {
   const prjSheet = ss.getSheetByName('Master_Projects');
   const folder = getOrCreateFolder_('MU_Sustainability_Attachments');
   const now = new Date();
-  const user = payload.submitterEmail || Session.getActiveUser().getEmail() || 'Anonymous';
+  const user = Session.getActiveUser().getEmail() || payload.submitterEmail || 'Anonymous';
 
   if (payload.projectStatus && prjSheet) {
     const mData = prjSheet.getDataRange().getValues();
@@ -725,6 +730,8 @@ function submitMonthlyActual(payload, expenseItems, generalFiles) {
   }
 
   if (generalFiles && generalFiles.length > 0) {
+    if (!fileSheet) throw new Error('ไม่พบชีท File_Attachments');
+    if (!fileSheet.getRange(1, 10).getValue()) fileSheet.getRange(1, 10).setValue('Uploaded_By');
     generalFiles.forEach(f => {
       const decoded = Utilities.base64Decode(f.base64.split(',')[1]);
       const blob = Utilities.newBlob(decoded, f.mimeType, f.name);
@@ -734,38 +741,171 @@ function submitMonthlyActual(payload, expenseItems, generalFiles) {
       fileSheet.appendRow([
         'FILE-' + Utilities.getUuid().substring(0, 8),
         'Project', payload.refId, targetFY, `${payload.month} ${payload.actualYear}`,
-        f.docType, f.name, uploaded.getUrl(), now
+        f.docType, f.name, uploaded.getUrl(), now, user
       ]);
     });
   }
   return { success: true, message: 'บันทึกผลงานเรียบร้อยแล้ว' };
 }
 
-// ฟังก์ชันลบไฟล์เอกสาร/รูปภาพออกจากชีทและ Drive
-function deleteAttachmentFile(fileRowId) {
+function formatAttachmentDate_(value) {
+  if (!value) return '';
+  try {
+    return Utilities.formatDate(new Date(value), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+  } catch (e) {
+    return String(value);
+  }
+}
+
+function normalizeAttachmentMonth_(monthValue, fiscalYear) {
+  const month = String(monthValue || '').trim();
+  if (/\d{4}/.test(month)) return month;
+  const index = CALENDAR_MONTHS.indexOf(month);
+  if (index < 0) return month;
+  const year = Number(fiscalYear) - (index >= 9 ? 1 : 0);
+  return `${month} ${year}`;
+}
+
+function getAttachmentHistory_(ss, activeRows, fiscalYear, refId) {
+  const year = String(fiscalYear).trim();
+  const project = String(refId).trim();
+  const active = activeRows.filter(r => String(r[3]).trim() === year && String(r[2]).trim() === project)
+    .map(r => ({
+      id: String(r[0]), month: normalizeAttachmentMonth_(r[4], r[3]), type: String(r[5]), name: String(r[6]),
+      url: String(r[7] || ''), uploadedAt: formatAttachmentDate_(r[8]),
+      uploadedBy: String(r[9] || ''), status: 'active', actedAt: '', actedBy: '', replacementId: '',
+      sortAt: r[8] ? new Date(r[8]).getTime() : 0
+    }));
+  const auditSheet = ss.getSheetByName('File_Attachment_Audit');
+  const archived = auditSheet ? auditSheet.getDataRange().getValues().slice(1)
+    .filter(r => String(r[2]).trim() === year && String(r[1]).trim() === project)
+    .map(r => ({
+      id: String(r[0]), month: normalizeAttachmentMonth_(r[3], r[2]), type: String(r[4]), name: String(r[5]),
+      url: '', uploadedAt: formatAttachmentDate_(r[7]), uploadedBy: String(r[8] || ''),
+      status: String(r[9] || 'removed'), actedAt: formatAttachmentDate_(r[10]),
+      actedBy: String(r[11] || ''), replacementId: String(r[12] || ''),
+      sortAt: r[10] ? new Date(r[10]).getTime() : 0
+    })) : [];
+  return active.concat(archived).sort((a, b) => (b.sortAt || 0) - (a.sortAt || 0));
+}
+
+function findAttachmentRow_(sheet, fileRowId, fiscalYear, refId, monthYear) {
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() !== String(fileRowId).trim()) continue;
+    const storedMonth = String(data[i][4]).trim();
+    const requestedMonth = String(monthYear).trim();
+    const sameMonth = storedMonth === requestedMonth || storedMonth === requestedMonth.replace(/\s+\d{4}$/, '');
+    if (String(data[i][3]).trim() !== String(fiscalYear).trim() ||
+        String(data[i][2]).trim() !== String(refId).trim() || !sameMonth) {
+      throw new Error('รายการไฟล์ไม่ตรงกับโครงการหรือเดือนที่เลือก');
+    }
+    return { rowNumber: i + 1, values: data[i] };
+  }
+  throw new Error('ไม่พบรายการไฟล์ที่ต้องการ');
+}
+
+function requireAttachmentEditor_(ss, row, fiscalYear, refId) {
+  const email = String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
+  if (!email) throw new Error('ไม่สามารถยืนยันอีเมลผู้ใช้งานได้');
+  if (checkAdminAccess().isAdmin || String(row.values[9] || '').trim().toLowerCase() === email) return;
+  const projectSheet = ss.getSheetByName('Master_Projects');
+  const project = projectSheet && projectSheet.getDataRange().getValues().slice(1)
+    .find(r => String(r[0]).trim() === String(refId).trim() &&
+      String(r[1]).trim() === String(fiscalYear).trim());
+  const editors = project ? [project[11], project[13], project[15]]
+    .map(value => String(value || '').trim().toLowerCase()) : [];
+  if (!editors.includes(email)) throw new Error('เฉพาะผู้รับผิดชอบโครงการหรือแอดมินเท่านั้นที่แก้ไขไฟล์นี้ได้');
+}
+
+function archiveAttachment_(ss, row, status, replacementId) {
+  const audit = getOrCreateSheet_('File_Attachment_Audit', [
+    'File_ID', 'Reference_ID', 'Fiscal_Year', 'Month_Year', 'File_Type', 'File_Name',
+    'Original_URL', 'Uploaded_At', 'Uploaded_By', 'Status', 'Action_At', 'Action_By', 'Replacement_ID'
+  ]);
+  const actor = (Session.getActiveUser().getEmail() || '').trim();
+  const r = row.values;
+  audit.appendRow([
+    String(r[0]), String(r[2]), String(r[3]), String(r[4]), String(r[5]), String(r[6]),
+    String(r[7] || ''), r[8] || '', String(r[9] || ''), status, new Date(), actor, replacementId || ''
+  ]);
+  return { sheet: audit, rowNumber: audit.getLastRow() };
+}
+
+function trashAttachmentDriveFile_(url) {
+  const match = String(url || '').match(/\/d\/([a-zA-Z0-9_-]+)/) || String(url || '').match(/id=([a-zA-Z0-9_-]+)/);
+  if (match && match[1]) DriveApp.getFileById(match[1]).setTrashed(true);
+}
+
+// นำไฟล์ออกจากรายการปัจจุบัน แต่เก็บประวัติการอัปโหลดไว้ตรวจสอบย้อนหลัง
+function deleteAttachmentFile(fileRowId, fiscalYear, refId, monthYear) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
   const ss = getAppSpreadsheet();
   const fileSheet = ss.getSheetByName('File_Attachments');
   if (!fileSheet) return { success: false, message: 'ไม่พบชีท File_Attachments' };
-
-  const data = fileSheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]).trim() === String(fileRowId).trim()) {
-      const fileUrl = String(data[i][7] || '');
-      // พยายามลบไฟล์จริงออกจาก Drive
-      try {
-        const match = fileUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || fileUrl.match(/id=([a-zA-Z0-9_-]+)/);
-        if (match && match[1]) {
-          DriveApp.getFileById(match[1]).setTrashed(true);
-        }
-      } catch (err) {
-        console.warn('Cannot trash Drive file:', err);
-      }
-
-      fileSheet.deleteRow(i + 1);
-      return { success: true, message: 'ลบไฟล์เรียบร้อยแล้ว' };
-    }
+  const row = findAttachmentRow_(fileSheet, fileRowId, fiscalYear, refId, monthYear);
+  requireAttachmentEditor_(ss, row, fiscalYear, refId);
+  const archived = archiveAttachment_(ss, row, 'removed', '');
+  try { fileSheet.deleteRow(row.rowNumber); }
+  catch (err) { archived.sheet.deleteRow(archived.rowNumber); throw err; }
+  let driveWarning = false;
+  try { trashAttachmentDriveFile_(row.values[7]); }
+  catch (err) { console.warn('Cannot trash Drive file:', err); driveWarning = true; }
+  return { success: true, message: driveWarning
+    ? 'นำออกจากรายการแล้ว แต่ย้ายไฟล์ใน Drive ไปถังขยะไม่สำเร็จ กรุณาตรวจไฟล์เดิมใน Drive'
+    : 'นำไฟล์ออกแล้ว และเก็บประวัติไว้' };
+  } finally {
+    lock.releaseLock();
   }
-  return { success: false, message: 'ไม่พบรายการไฟล์ที่ต้องการลบ' };
+}
+
+function replaceAttachmentFile(fileRowId, fiscalYear, refId, monthYear, fileObj) {
+  if (!fileObj || !fileObj.base64 || !fileObj.name ||
+      !(/^(application\/pdf|image\/(jpeg|png|webp|gif))$/i).test(String(fileObj.mimeType || ''))) {
+    throw new Error('กรุณาเลือกไฟล์ PDF หรือรูปภาพที่ถูกต้อง');
+  }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const ss = getAppSpreadsheet();
+    const sheet = ss.getSheetByName('File_Attachments');
+    if (!sheet) throw new Error('ไม่พบชีท File_Attachments');
+    const old = findAttachmentRow_(sheet, fileRowId, fiscalYear, refId, monthYear);
+    requireAttachmentEditor_(ss, old, fiscalYear, refId);
+    const decoded = Utilities.base64Decode(String(fileObj.base64).split(',')[1]);
+    const blob = Utilities.newBlob(decoded, fileObj.mimeType, fileObj.name);
+    const uploaded = getOrCreateFolder_('MU_Sustainability_Attachments').createFile(blob);
+    const newId = 'FILE-' + Utilities.getUuid().substring(0, 8);
+    const actor = (Session.getActiveUser().getEmail() || '').trim();
+    let archived = null;
+    try {
+      uploaded.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      if (!sheet.getRange(1, 10).getValue()) sheet.getRange(1, 10).setValue('Uploaded_By');
+      sheet.appendRow([newId, 'Project', String(refId), String(fiscalYear), String(monthYear),
+        String(fileObj.mimeType).startsWith('image/') ? 'รูปภาพ' : 'รายงาน',
+        String(fileObj.name), uploaded.getUrl(), new Date(), actor]);
+      archived = archiveAttachment_(ss, old, 'replaced', newId);
+      sheet.deleteRow(old.rowNumber);
+    } catch (err) {
+      if (archived) archived.sheet.deleteRow(archived.rowNumber);
+      const rows = sheet.getDataRange().getValues();
+      for (let i = rows.length - 1; i >= 1; i--) {
+        if (String(rows[i][0]) === newId) sheet.deleteRow(i + 1);
+      }
+      uploaded.setTrashed(true);
+      throw err;
+    }
+    let driveWarning = false;
+    try { trashAttachmentDriveFile_(old.values[7]); }
+    catch (err) { console.warn('Cannot trash replaced Drive file:', err); driveWarning = true; }
+    return { success: true, message: driveWarning
+      ? 'แทนที่แล้ว แต่ย้ายไฟล์เดิมใน Drive ไปถังขยะไม่สำเร็จ กรุณาตรวจไฟล์เดิมใน Drive'
+      : 'แทนที่ไฟล์แล้ว และเก็บประวัติไฟล์เดิมไว้' };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 
@@ -1255,6 +1395,11 @@ function getDashboardReport(fiscalYear, dept, refId, asOfMonthKey) {
   };
 }
 
+// ส่งรายงานผ่าน JSON เพื่อให้ google.script.run ส่งโครงสร้างข้อมูลซ้อนกันได้ครบ
+function getDashboardReportJson(fiscalYear, dept, refId, asOfMonthKey) {
+  return JSON.stringify(getDashboardReport(fiscalYear, dept, refId, asOfMonthKey));
+}
+
 // ฟังก์ชันดึงข้อมูลตารางเมทริกซ์ สรุปแผน vs ผล
 function getProjectYearlyMatrix(fiscalYear, refId) {
   const ss = getAppSpreadsheet();
@@ -1295,6 +1440,7 @@ function getProjectYearlyMatrix(fiscalYear, refId) {
     };
   }).sort((a, b) => (a.actualYear * 12 + a.monthVal) - (b.actualYear * 12 + b.monthVal));
 }
+
 
 /* BudgetDocService.gs */
 // ค้นหาชีทเอกสารงบประมาณโครงการใหญ่แบบยืดหยุ่น (ป้องกันปัญหาชื่อชีทมี space ต่อท้าย)

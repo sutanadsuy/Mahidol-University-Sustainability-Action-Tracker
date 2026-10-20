@@ -1,4 +1,19 @@
 <script>
+  let replacementTargetId = '';
+
+  function escapeActualHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+  }
+
+  function safeAttachmentUrl(value) {
+    try {
+      const url = new URL(String(value || ''));
+      return url.protocol === 'https:' && ['drive.google.com', 'docs.google.com'].includes(url.hostname) ? url.href : '';
+    } catch (e) { return ''; }
+  }
+
   function toggleActualMatrix() {
     const box = document.getElementById('collapseMatrixActual');
     const icon = document.getElementById('matrixToggleIcon');
@@ -36,7 +51,7 @@
       stagedFilesQueue.push({ id: Math.random().toString(36).substring(2, 9), file: file });
     }
     renderFileQueueUI();
-    input.value = '';
+    if ('value' in input) input.value = '';
   }
 
   function removeStagedFile(fileId) {
@@ -59,7 +74,7 @@
         <div class="p-2 mb-1 border rounded bg-white d-flex justify-content-between align-items-center small">
           <div class="text-truncate" style="max-width: 65%;">
             <i class="bi ${isImg ? 'bi-file-earmark-image text-success' : 'bi-file-earmark-pdf text-danger'} me-1"></i>
-            <strong>${item.file.name}</strong> <span class="text-muted">(${sizeKB} KB)</span>
+            <strong>${escapeActualHtml(item.file.name)}</strong> <span class="text-muted">(${sizeKB} KB)</span>
           </div>
           <div class="d-flex align-items-center gap-2">
             ${previewBtn}
@@ -83,14 +98,14 @@
     }
   }
 
-  // วาดรายการไฟล์ที่เคยอัปโหลดไว้แล้วในรอบเดือนนี้ พร้อมปุ่มดูและปุ่มลบ
+  // ไฟล์ปัจจุบันของเดือนที่เลือก
   function renderExistingMonthFiles(files) {
     const container = document.getElementById('uploadedFilesListContainer');
     const badge = document.getElementById('uploadedFilesCountBadge');
     if (!container) return;
 
     if (!files || files.length === 0) {
-      container.innerHTML = '<small class="text-muted italic">ยังไม่มีไฟล์ที่เคยบันทึกในรอบเดือนนี้</small>';
+      container.innerHTML = '<small class="text-muted italic">เดือนนี้ยังไม่มีไฟล์ที่ใช้งานอยู่</small>';
       if (badge) badge.innerText = '0 รายการ';
       return;
     }
@@ -99,41 +114,127 @@
 
     container.innerHTML = files.map(f => {
       const isImg = (f.type === 'รูปภาพ' || String(f.name).match(/\.(jpg|jpeg|png|webp)$/i));
+      const url = safeAttachmentUrl(f.url);
       return `
-        <div class="p-2 mb-1 border rounded bg-light d-flex justify-content-between align-items-center small">
-          <div class="text-truncate" style="max-width: 65%;">
+        <div class="p-2 mb-2 border rounded bg-light d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 small">
+          <div class="text-truncate">
             <i class="bi ${isImg ? 'bi-file-earmark-image-fill text-success' : 'bi-file-earmark-pdf-fill text-danger'} me-1"></i>
-            <strong>${f.name}</strong>
-            <span class="text-muted" style="font-size: 0.72rem;">(${f.type} | บันทึก: ${f.uploadedAt || '-'})</span>
+            <strong>${escapeActualHtml(f.name)}</strong>
+            <span class="text-muted d-block ms-4" style="font-size: 0.72rem;">${escapeActualHtml(f.type)} · อัปโหลด ${escapeActualHtml(f.uploadedAt || '-')} ${f.uploadedBy ? 'โดย ' + escapeActualHtml(f.uploadedBy) : ''}</span>
           </div>
-          <div class="d-flex align-items-center gap-2">
-            <a href="${f.url}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.72rem;">
-              <i class="bi bi-eye"></i> ดูไฟล์
-            </a>
-            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size: 0.72rem;" onclick="confirmDeleteFile('${f.id}', '${f.name}')">
-              <i class="bi bi-trash"></i> ลบ
-            </button>
+          <div class="d-flex align-items-center gap-1 flex-shrink-0">
+            ${url ? `<a href="${escapeActualHtml(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i> ดูไฟล์</a>` : ''}
+            <button type="button" class="btn btn-sm btn-outline-warning" data-attachment-action="replace" data-file-id="${escapeActualHtml(f.id)}"><i class="bi bi-arrow-repeat"></i> แทนที่</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-attachment-action="remove" data-file-id="${escapeActualHtml(f.id)}"><i class="bi bi-trash"></i> นำออก</button>
           </div>
         </div>
       `;
     }).join('');
+    container.querySelectorAll('[data-attachment-action]').forEach(button => {
+      button.addEventListener('click', () => {
+        const file = files.find(item => String(item.id) === button.dataset.fileId);
+        if (!file) return;
+        if (button.dataset.attachmentAction === 'replace') chooseReplacementFile(file.id);
+        else confirmDeleteFile(file.id, file.name);
+      });
+    });
   }
 
-  // ฟังก์ชันกดยืนยันลบไฟล์
+  function renderAttachmentHistory() {
+    const history = currentContextData?.attachmentHistory || [];
+    const container = document.getElementById('attachmentHistoryContainer');
+    const filter = document.getElementById('attachmentHistoryMonthFilter');
+    const badge = document.getElementById('attachmentHistoryCountBadge');
+    if (!container || !filter) return;
+    const selected = filter.value;
+    const months = [...new Set(history.map(item => item.month).filter(Boolean))];
+    filter.innerHTML = '<option value="ALL">ทุกเดือน</option>' + months.map(month =>
+      `<option value="${escapeActualHtml(month)}">${escapeActualHtml(month)}</option>`).join('');
+    filter.value = months.includes(selected) ? selected : 'ALL';
+    if (badge) badge.innerText = `${history.length} รายการ`;
+    const shown = history.filter(item => filter.value === 'ALL' || item.month === filter.value);
+    if (!shown.length) {
+      container.innerHTML = '<span class="text-muted">ยังไม่มีประวัติไฟล์ในโครงการนี้</span>';
+      return;
+    }
+    const statusLabel = { active: 'ใช้งานอยู่', replaced: 'ถูกแทนที่', removed: 'นำออกแล้ว' };
+    const statusClass = { active: 'bg-success-subtle text-success', replaced: 'bg-warning-subtle text-warning-emphasis', removed: 'bg-secondary-subtle text-secondary' };
+    container.innerHTML = shown.map(item => {
+      const status = item.status || 'active';
+      const url = status === 'active' ? safeAttachmentUrl(item.url) : '';
+      const replacement = item.replacementId ? history.find(h => h.id === item.replacementId) : null;
+      return `<div class="border-top py-2 d-flex justify-content-between align-items-start gap-2">
+        <div class="text-break">
+          <div><strong>${escapeActualHtml(item.name)}</strong> <span class="badge ${statusClass[status] || statusClass.removed}">${statusLabel[status] || 'นำออกแล้ว'}</span></div>
+          <div class="text-muted">${escapeActualHtml(item.month)} · อัปโหลด ${escapeActualHtml(item.uploadedAt || '-')} ${item.uploadedBy ? 'โดย ' + escapeActualHtml(item.uploadedBy) : ''}</div>
+          ${status !== 'active' ? `<div class="text-muted">${status === 'replaced' ? 'แทนที่' : 'นำออก'} ${escapeActualHtml(item.actedAt || '-')} ${item.actedBy ? 'โดย ' + escapeActualHtml(item.actedBy) : ''}${replacement ? ' → ' + escapeActualHtml(replacement.name) : ''}</div>` : ''}
+        </div>
+        ${url ? `<a href="${escapeActualHtml(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary flex-shrink-0">ดูไฟล์</a>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function chooseReplacementFile(fileRowId) {
+    replacementTargetId = String(fileRowId);
+    const input = document.getElementById('actReplacementFile');
+    input.value = '';
+    input.click();
+  }
+
+  async function handleReplacementFile(input) {
+    if (!replacementTargetId || !input.files || !input.files[0]) return;
+    const id = replacementTargetId;
+    replacementTargetId = '';
+    const old = (currentContextData?.existingMonthFiles || []).find(item => String(item.id) === id);
+    if (!old) return;
+    let file = input.files[0];
+    if (!(file.type === 'application/pdf' || /^image\/(jpeg|png|webp|gif)$/i.test(file.type))) {
+      Swal.fire({ icon: 'error', title: 'ไฟล์ไม่ถูกต้อง', text: 'กรุณาเลือก PDF หรือรูปภาพ JPG, PNG, WebP, GIF' });
+      return;
+    }
+    const answer = await Swal.fire({
+      icon: 'question', title: 'แทนที่ไฟล์นี้?',
+      html: `<div class="text-start small">ไฟล์เดิม: <strong>${escapeActualHtml(old.name)}</strong><br>ไฟล์ใหม่: <strong>${escapeActualHtml(file.name)}</strong><br><span class="text-muted">ระบบจะเก็บประวัติไฟล์เดิม และนำไฟล์เดิมออกจากรายการใช้งาน</span></div>`,
+      showCancelButton: true, confirmButtonText: 'แทนที่ไฟล์', cancelButtonText: 'ยกเลิก'
+    });
+    if (!answer.isConfirmed) return;
+    let base64;
+    try {
+      if (file.type.startsWith('image/')) file = await compressImageFile(file, 1200, 1200, 0.7);
+      base64 = await toBase64(file);
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'เตรียมไฟล์ไม่สำเร็จ', text: err.message || 'กรุณาลองเลือกไฟล์ใหม่' });
+      return;
+    }
+    Swal.fire({ title: 'กำลังแทนที่ไฟล์...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    const fiscalYear = document.getElementById('actYear').value;
+    const refId = document.getElementById('actRefId').value;
+    const monthYear = `${document.getElementById('actMonth').value} ${document.getElementById('actActualYear').value}`;
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire({ icon: res.success ? 'success' : 'error', title: res.success ? 'แทนที่สำเร็จ' : 'แทนที่ไม่สำเร็จ', text: res.message });
+      if (res.success) { checkMonthlyContext(); loadDashboard(); }
+    }).withFailureHandler(err => {
+      Swal.fire({ icon: 'error', title: 'แทนที่ไม่สำเร็จ', text: err.message });
+    }).replaceAttachmentFile(id, fiscalYear, refId, monthYear, { name: file.name, mimeType: file.type, base64 });
+  }
+
   function confirmDeleteFile(fileRowId, fileName) {
+    const fiscalYear = document.getElementById('actYear').value;
+    const refId = document.getElementById('actRefId').value;
+    const monthYear = `${document.getElementById('actMonth').value} ${document.getElementById('actActualYear').value}`;
     Swal.fire({
-      title: 'ยืนยันการลบไฟล์?',
-      text: `คุณต้องการลบไฟล์ "${fileName}" ออกจากระบบและ Google Drive ใช่หรือไม่?`,
+      title: 'นำไฟล์นี้ออก?',
+      html: `ไฟล์ <strong>${escapeActualHtml(fileName)}</strong> จะออกจากรายการใช้งาน โดยยังมีชื่อและเวลาอยู่ในประวัติ`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#dc3545',
       cancelButtonColor: '#6c757d',
-      confirmButtonText: 'ใช่, ลบไฟล์นี้',
+      confirmButtonText: 'นำไฟล์ออก',
       cancelButtonText: 'ยกเลิก'
     }).then(result => {
       if (result.isConfirmed) {
         Swal.fire({
-          title: 'กำลังลบไฟล์...',
+          title: 'กำลังนำไฟล์ออก...',
           allowOutsideClick: false,
           didOpen: () => { Swal.showLoading(); }
         });
@@ -141,7 +242,7 @@
         google.script.run
           .withSuccessHandler(res => {
             if (res.success) {
-              Swal.fire({ icon: 'success', title: 'ลบสำเร็จ!', text: res.message, timer: 1500, showConfirmButton: false });
+              Swal.fire({ icon: 'success', title: 'นำไฟล์ออกแล้ว', text: res.message, timer: 1500, showConfirmButton: false });
               checkMonthlyContext();
               loadDashboard();
             } else {
@@ -151,7 +252,7 @@
           .withFailureHandler(err => {
             Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message });
           })
-          .deleteAttachmentFile(fileRowId);
+          .deleteAttachmentFile(fileRowId, fiscalYear, refId, monthYear);
       }
     });
   }
@@ -294,7 +395,8 @@
         }
 
         renderExpenseRowsForActual(res.masterProcureItems);
-        renderExistingMonthFiles(res.existingMonthFiles || []); // แสดงไฟล์เดิมของเดือนนี้
+        renderExistingMonthFiles(res.existingMonthFiles || []);
+        renderAttachmentHistory();
         calcRealtimeActualStatus();
 
         document.getElementById('planNotice').innerText = res.isPlanFound ? '✔️ มีแผนงานล่วงหน้าของเดือนนี้' : '⚠️ ยังไม่มีการกรอกแผนล่วงหน้าของเดือนนี้';

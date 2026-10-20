@@ -23,6 +23,32 @@
     .custom-file-upload:hover { background: #e0effe; }
     .clickable-project { cursor: pointer; text-decoration: none; font-weight: bold; }
     .clickable-project:hover { text-decoration: underline; color: #0d6efd !important; }
+    #annualPlanTable { min-width: 850px; font-variant-numeric: tabular-nums; border-collapse: separate; border-spacing: 0; }
+    #annualPlanTable th, #annualPlanTable td { vertical-align: middle; text-align: center; }
+    #annualPlanTable thead th { padding: .8rem .5rem; line-height: 1.3; }
+    #annualPlanTable th:first-child, #annualPlanTable td:first-child {
+      position: sticky; left: 0; z-index: 1; min-width: 122px;
+      background-color: #f8fafc; box-shadow: 2px 0 4px rgba(15, 23, 42, 0.08);
+    }
+    #annualPlanTable thead th:first-child { z-index: 2; }
+    #annualPlanTable th:not(:first-child), #annualPlanTable td:not(:first-child) { min-width: 105px; }
+    #annualPlanTable th:nth-child(4), #annualPlanTable td:nth-child(4) {
+      min-width: 155px; background-color: #eff6ff; border-left-color: #bfdbfe; border-right-color: #bfdbfe;
+    }
+    #annualPlanTable thead th:nth-child(4) { color: #1d4ed8; background-color: #dbeafe; }
+    #annualPlanTable tbody tr:hover td, #annualPlanTable tbody tr:focus-within td { background-color: #f1f5f9; }
+    #annualPlanTable tbody tr:hover td:nth-child(4), #annualPlanTable tbody tr:focus-within td:nth-child(4) { background-color: #dbeafe; }
+    #annualPlanTable .plan-number-input {
+      width: 100%; min-width: 80px; text-align: center; font-variant-numeric: tabular-nums;
+      font-weight: 600; padding: .45rem .35rem; color: #0f172a;
+    }
+    #annualPlanTable .p-proc { color: #1d4ed8; border: 2px solid #60a5fa; background-color: #fff; font-weight: 700; }
+    #annualPlanTable .plan-number-input::placeholder { color: #94a3b8; font-weight: 400; }
+    #annualPlanTable .plan-number-input.is-invalid { border-color: #dc3545; background-color: #fff1f2; }
+    #annualPlanTable .plan-number-input:focus { box-shadow: 0 0 0 .2rem rgba(37, 99, 235, .18); }
+    #annualPlanTable input[type=number]::-webkit-inner-spin-button,
+    #annualPlanTable input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    #annualPlanTable input[type=number] { appearance: textfield; }
 
     @media print {
       body { background: #fff !important; }
@@ -45,7 +71,7 @@
 
 
 
-      <li class="nav-item ms-md-2"><a class="nav-link border border-primary text-primary" href="https://script.google.com/a/macros/mahidol.ac.th/s/AKfycbzN5DwkM8fZ_5Pur94BRKtqttV1HyIdyzLr7Ww9r95d8yrLMlr_HYJ0glttJGKulayl/exec" target="_blank" rel="noopener noreferrer" title="เข้าสู่ระบบ Google เพื่อบันทึกหรือแก้ไขข้อมูล"><i class="bi bi-pencil-square me-1"></i>บันทึก/แก้ไขข้อมูล</a></li>
+      <li class="nav-item ms-md-2"><a class="nav-link border border-primary text-primary" href="https://script.google.com/a/macros/mahidol.ac.th/s/AKfycbwktgmYgRjStHCH6QBz4m-SU6q9sTuk4Up6lZEJBPX1Lc-lCXrhzUvs_jnjAFdtNESfkA/exec" target="_blank" rel="noopener noreferrer" title="เข้าสู่ระบบ Google เพื่อบันทึกหรือแก้ไขข้อมูล"><i class="bi bi-pencil-square me-1"></i>บันทึก/แก้ไขข้อมูล</a></li>
       </ul>
     </div>
 
@@ -186,6 +212,47 @@
     </div>
   </div>
 
+  <!-- Portfolio comparison for executive monthly review -->
+  <div class="card p-3 p-md-4 card-box bg-white mb-4" id="portfolioComparisonCard">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-2">
+      <div>
+        <h6 class="fw-bold text-primary mb-1"><i class="bi bi-table me-1"></i> เปรียบเทียบทุกโครงการในปีงบประมาณนี้</h6>
+        <small class="text-muted">เทียบความคืบหน้ากับแผนของแต่ละโครงการ ณ เดือนตัดยอดที่เลือก • คลิกชื่อเพื่อดูรายละเอียด</small>
+      </div>
+      <div style="min-width: 170px;">
+        <label class="visually-hidden" for="portfolioStatusFilter">กรองสถานะโครงการ</label>
+        <select id="portfolioStatusFilter" class="form-select form-select-sm" onchange="renderPortfolioComparison()">
+          <option value="ALL">ทุกสถานะ</option>
+          <option value="Delayed">ล่าช้ากว่าแผน</option>
+          <option value="Revising">กำลังปรับแผน</option>
+          <option value="On Track">ตามแผน / เร็วกว่าแผน</option>
+          <option value="Completed">แล้วเสร็จ</option>
+        </select>
+      </div>
+    </div>
+    <div id="portfolioBudgetSummary" class="small text-secondary mb-3"></div>
+    <div class="small text-muted d-md-none mb-2"><i class="bi bi-arrow-left-right me-1"></i>เลื่อนตารางซ้าย–ขวาเพื่อดูสถานะและเรื่องที่ควรติดตาม</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0" style="font-size: .84rem; min-width: 850px;">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">โครงการ</th>
+            <th scope="col" class="text-end">งบจัดสรร (บาท)</th>
+            <th scope="col" class="text-end">จ่ายแล้ว (บาท)</th>
+            <th scope="col" class="text-center">แผนสะสม</th>
+            <th scope="col" class="text-center">ผลสะสม</th>
+            <th scope="col" class="text-center">ต่างจากแผน</th>
+            <th scope="col" class="text-center">สถานะ</th>
+            <th scope="col">เรื่องที่ควรติดตาม</th>
+          </tr>
+        </thead>
+        <tbody id="portfolioComparisonBody">
+          <tr><td colspan="8" class="text-center text-muted py-3">กำลังโหลดข้อมูลโครงการ...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Charts & Right Card -->
   <div class="row mb-4">
     <div class="col-lg-8">
@@ -303,6 +370,7 @@
     </div>
   </div>
 </div>
+
       <div class="tab-pane fade" id="matrixTab">
   <div class="card p-3 mb-4 card-box bg-white">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 pb-2 border-bottom">
@@ -547,8 +615,6 @@
     populateSelect('dashRefId', true);
     populateSelect('actRefId', false);
     populateSelect('setupRefId', false);
-    if (typeof onPlanProjectSelected === 'function') onPlanProjectSelected();
-    if (typeof checkMonthlyContext === 'function') checkMonthlyContext();
   }
 
   function updateMatrixRefDropdown() {
@@ -560,14 +626,27 @@
         select.innerHTML += `<option value="${i.id}">${i.id} - ${i.name}</option>`;
       });
     }
-    if (typeof loadTrackingMatrix === 'function') {
-      loadTrackingMatrix();
-    }
   }
 </script>
 
   <script>
   let chartProgress = null, chartExpense = null, chartSdg = null;
+  let dashboardRequestId = 0;
+
+  function showDashboardError(message) {
+    const statusBadge = document.getElementById('dashLoadingStatus');
+    if (!statusBadge) return;
+    statusBadge.innerHTML = '';
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2';
+    badge.textContent = message;
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'btn btn-sm btn-outline-danger ms-2 py-0';
+    retry.textContent = 'ลองใหม่';
+    retry.onclick = loadDashboard;
+    statusBadge.append(badge, retry);
+  }
 
   window.onload = function() {
     initYearDropdowns();
@@ -642,26 +721,8 @@
       console.error('getInitialBootstrapData failed:', err);
     }).getInitialBootstrapData(currentYear);
 
-    // Call 2: โหลดข้อมูล Dashboard ทันที
-    google.script.run.withSuccessHandler(res => {
-      if (!res) return;
-      populateAsOfMonthDropdown(res.timelineKeys);
-      renderDashboardUI(res);
-
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-      if (statusBadge) {
-        statusBadge.innerHTML = `
-          <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
-            <i class="bi bi-check-circle-fill me-1"></i>อัปเดตข้อมูลแล้ว (${timeStr} น.)
-          </span>
-        `;
-      }
-    }).withFailureHandler(err => {
-      if (statusBadge) {
-        statusBadge.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>เกิดข้อผิดพลาดในการโหลด</span>`;
-      }
-    }).getDashboardReport(currentYear, 'ALL', 'ALL', 'ALL');
+    // โหลดรายงานแยกจากข้อมูลตัวกรอง เพื่อให้แสดงข้อผิดพลาดของแต่ละคำขอได้ชัดเจน
+    loadDashboard();
   };
 
   function dataTotalFormat(val) {
@@ -745,34 +806,45 @@
       `;
     }
 
+    const requestId = ++dashboardRequestId;
+    const timeoutId = setTimeout(() => {
+      if (requestId === dashboardRequestId) {
+        showDashboardError('รอข้อมูลนานเกิน 45 วินาที กรุณาลองใหม่');
+      }
+    }, 45000);
+
     google.script.run
       .withSuccessHandler(res => {
-        if (!res) return;
-        populateAsOfMonthDropdown(res.timelineKeys);
-        document.getElementById('dashAsOfMonth').value = asOfMonth;
+        clearTimeout(timeoutId);
+        if (requestId !== dashboardRequestId) return;
+        try {
+          const report = typeof res === 'string' ? JSON.parse(res) : res;
+          if (!report || !report.kpi) throw new Error('เซิร์ฟเวอร์ส่งข้อมูลรายงานไม่ครบ');
+          populateAsOfMonthDropdown(report.timelineKeys);
+          document.getElementById('dashAsOfMonth').value = asOfMonth;
+          renderDashboardUI(report);
 
-        renderDashboardUI(res);
-
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-        if (statusBadge) {
-          statusBadge.innerHTML = `
-            <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
-              <i class="bi bi-check-circle-fill me-1"></i>อัปเดตข้อมูลแล้ว (${timeStr} น.)
-            </span>
-          `;
+          const now = new Date();
+          const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+          if (statusBadge) {
+            statusBadge.innerHTML = `
+              <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
+                <i class="bi bi-check-circle-fill me-1"></i>อัปเดตข้อมูลแล้ว (${timeStr} น.)
+              </span>
+            `;
+          }
+        } catch (error) {
+          console.error('Dashboard display failed:', error);
+          showDashboardError('แสดงรายงานไม่สำเร็จ: ' + error.message);
         }
       })
       .withFailureHandler(err => {
-        if (statusBadge) {
-          statusBadge.innerHTML = `
-            <span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2">
-              <i class="bi bi-exclamation-triangle-fill me-1"></i>เกิดข้อผิดพลาดในการโหลด
-            </span>
-          `;
-        }
+        clearTimeout(timeoutId);
+        if (requestId !== dashboardRequestId) return;
+        console.error('getDashboardReport failed:', err);
+        showDashboardError('โหลดรายงานไม่สำเร็จ: ' + (err && err.message ? err.message : 'ไม่ทราบสาเหตุ'));
       })
-      .getDashboardReport(year, dept, refId, asOfMonth);
+      .getDashboardReportJson(year, dept, refId, asOfMonth);
   }
 
   function drillDownToProject(projectId) {
@@ -896,6 +968,75 @@
 </script>
 
   <script>
+  let latestPortfolioReport = null;
+
+  function escapeDashboardHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+  }
+
+  function renderPortfolioComparison(report = latestPortfolioReport) {
+    if (!report) return;
+    latestPortfolioReport = report;
+    const body = document.getElementById('portfolioComparisonBody');
+    const summary = document.getElementById('portfolioBudgetSummary');
+    if (!body || !summary) return;
+    const rows = report.projectStatusList || [];
+    const totalAllocated = rows.reduce((sum, p) => sum + (Number(p.budget) || 0), 0);
+    const masterBudget = Number(report.kpi && report.kpi.totalMasterBudget) || 0;
+    const selectedDept = document.getElementById('dashDept')?.value || 'ALL';
+    const allocatedText = totalAllocated.toLocaleString('th-TH', { maximumFractionDigits: 0 });
+    if (selectedDept === 'ALL') {
+      const unallocated = masterBudget - totalAllocated;
+      summary.textContent = `กรอบงบปีนี้ ${masterBudget.toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท • จัดสรรให้โครงการแล้ว ${allocatedText} บาท • ${unallocated >= 0 ? 'ยังไม่จัดสรร' : 'จัดสรรเกินกรอบ'} ${Math.abs(unallocated).toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท`;
+    } else {
+      summary.textContent = `งบจัดสรรของหน่วยงานนี้ ${allocatedText} บาท • แสดง ${rows.length} โครงการ`;
+    }
+
+    const filter = document.getElementById('portfolioStatusFilter')?.value || 'ALL';
+    const pendingIds = new Set((report.pendingSubmissionsList || []).map(p => String(p.id)));
+    const priority = { Delayed: 0, Revising: 1, 'On Track': 2, Completed: 3 };
+    const visible = rows.filter(p => filter === 'ALL' || p.status === filter)
+      .sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9) || Number(a.diff) - Number(b.diff));
+    if (!visible.length) {
+      body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">ไม่มีโครงการตามสถานะที่เลือก</td></tr>';
+      return;
+    }
+
+    body.innerHTML = visible.map(p => {
+      const budget = Number(p.budget) || 0;
+      const spent = Number(p.spent) || 0;
+      const diff = Number(p.diff) || 0;
+      const notStarted = p.status === 'On Track' && !(Number(p.plan) || 0) && !(Number(p.act) || 0);
+      const statusText = p.status === 'Completed' ? 'แล้วเสร็จ' :
+        p.status === 'Delayed' ? 'ล่าช้า' :
+        p.status === 'Revising' ? 'กำลังปรับแผน' : notStarted ? 'ยังไม่เริ่ม' :
+        diff > 0.01 ? 'เร็วกว่าแผน' : 'ตามแผน';
+      const statusClass = p.status === 'Delayed' ? 'text-bg-danger' :
+        p.status === 'Revising' ? 'text-bg-warning' :
+        p.status === 'Completed' ? 'text-bg-success' : notStarted ? 'text-bg-secondary' : 'text-bg-info';
+      const actions = [];
+      if (p.status === 'Delayed') actions.push('ติดตามสาเหตุและแผนแก้ไข');
+      if (p.status === 'Revising') actions.push('ยืนยันช่วงเวลาแผนใหม่');
+      if (p.status === 'Completed') actions.push('ตรวจเอกสารปิดโครงการ');
+      if (spent > budget && budget > 0) actions.push('ตรวจยอดจ่ายเกินงบ');
+      if (pendingIds.has(String(p.id))) actions.push('รอรายงานผลเดือนนี้');
+      const followUp = actions.join(' · ') || 'ติดตามตามรอบ';
+      const diffClass = diff < -0.01 ? 'text-danger' : diff > 0.01 ? 'text-success' : 'text-secondary';
+      return `<tr>
+        <td style="min-width: 260px;"><button type="button" class="btn btn-link text-start p-0 fw-semibold text-decoration-none" data-project-id="${escapeDashboardHtml(p.id)}" onclick="drillDownToProject(this.dataset.projectId)">${escapeDashboardHtml(p.name)}</button><div class="text-muted small">${escapeDashboardHtml(p.id)}</div></td>
+        <td class="text-end">${budget.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</td>
+        <td class="text-end ${spent > budget && budget > 0 ? 'text-danger fw-semibold' : ''}">${spent.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</td>
+        <td class="text-center">${(Number(p.plan) || 0).toFixed(1)}%</td>
+        <td class="text-center fw-semibold">${(Number(p.act) || 0).toFixed(1)}%</td>
+        <td class="text-center fw-semibold ${diffClass}">${diff > 0 ? '+' : ''}${diff.toFixed(1)}%</td>
+        <td class="text-center"><span class="badge ${statusClass}">${statusText}</span></td>
+        <td class="small">${followUp}</td>
+      </tr>`;
+    }).join('');
+  }
+
   function getDirectDriveImageUrl(url) {
     if (!url) return '';
     const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
@@ -922,6 +1063,7 @@
     const sdgChartCard = document.getElementById('sdgChartCard');
     const overviewRightCards = document.getElementById('overviewRightCards');
     const singleProjectFilesCard = document.getElementById('singleProjectFilesCard');
+    const portfolioComparisonCard = document.getElementById('portfolioComparisonCard');
 
     renderMasterDocs(res.masterDocs || []);
 
@@ -932,6 +1074,8 @@
       if (sdgChartCard) sdgChartCard.classList.remove('d-none');
       if (overviewRightCards) overviewRightCards.classList.remove('d-none');
       if (singleProjectFilesCard) singleProjectFilesCard.classList.add('d-none');
+      if (portfolioComparisonCard) portfolioComparisonCard.classList.remove('d-none');
+      renderPortfolioComparison(res);
 
       const projHeaderCard = document.getElementById('singleProjectHeaderCard');
       if (projHeaderCard) projHeaderCard.classList.add('d-none');
@@ -1000,6 +1144,7 @@
       if (sdgChartCard) sdgChartCard.classList.add('d-none');
       if (overviewRightCards) overviewRightCards.classList.add('d-none');
       if (singleProjectFilesCard) singleProjectFilesCard.classList.remove('d-none');
+      if (portfolioComparisonCard) portfolioComparisonCard.classList.add('d-none');
 
       let projHeaderCard = document.getElementById('singleProjectHeaderCard');
       if (!projHeaderCard && teamBox) {
@@ -1183,7 +1328,8 @@
       return;
     }
     box.innerHTML = docs.map(d => {
-      const isPdf = d.fileName.toLowerCase().endsWith('.pdf');
+      const fileName = String(d.fileName || d.docName || '');
+      const isPdf = fileName.toLowerCase().endsWith('.pdf');
       const iconClass = isPdf ? 'bi-file-earmark-pdf text-danger' : 'bi-file-earmark-word text-primary';
       const latestBadge = d.isLatest ? '<span class="badge bg-danger ms-1" style="font-size:0.65rem;">ล่าสุด (ยึดฉบับนี้)</span>' : '';
       return `
@@ -1264,6 +1410,7 @@
     `).join('');
   }
 </script>
+
   <script>
   function renderCharts(res) {
     if (chartProgress) chartProgress.destroy();

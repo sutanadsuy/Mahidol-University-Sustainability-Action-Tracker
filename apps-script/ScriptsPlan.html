@@ -19,6 +19,52 @@
     { id: 'SDG 17', name: 'SDG 17: หุ้นส่วนความร่วมมือเพื่อการพัฒนาที่ยั่งยืน' }
   ];
 
+  let planSavedMonthKeys = new Set();
+  let planDirty = false;
+  let planCurrentProjectKey = '';
+
+  function setPlanEditStatus(dirty) {
+    planDirty = dirty;
+    const status = document.getElementById('planEditStatus');
+    if (!status) return;
+    status.className = dirty ? 'badge bg-warning text-dark border border-warning' : 'badge bg-light text-secondary border';
+    status.textContent = dirty ? 'มีข้อมูลที่ยังไม่ได้บันทึก' : 'บันทึกแล้ว / ยังไม่มีการแก้ไข';
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('input', event => {
+      if (event.target.closest('#planTab')) setPlanEditStatus(true);
+    });
+    document.addEventListener('change', event => {
+      if (event.target.closest('#planTab')) setPlanEditStatus(true);
+    });
+    document.addEventListener('click', event => {
+      const button = event.target.closest('#planTab button');
+      if (button && /addMasterProcureRow|addSdgAlignmentRow|\.remove\(\)/.test(button.getAttribute('onclick') || '')) {
+        setPlanEditStatus(true);
+      }
+    });
+  }
+
+  function updatePlanMoneyCheck() {
+    const notice = document.getElementById('planMoneyCheck');
+    if (!notice) return;
+    const planTotal = [...document.querySelectorAll('#dynamicPlanTbody .p-proc')]
+      .reduce((sum, input) => sum + getCleanNumber(input.value), 0);
+    const itemTotal = [...document.querySelectorAll('#masterProcureContainer .mproc-bgt')]
+      .reduce((sum, input) => sum + getCleanNumber(input.value), 0);
+    if (!planTotal && !itemTotal) {
+      notice.className = 'small text-muted mb-3';
+      notice.textContent = 'ยอดเงินรายเดือนและวงเงินรายการพัสดุจะแสดงการเทียบกันเมื่อเริ่มกรอก';
+    } else if (Math.abs(planTotal - itemTotal) < 0.01) {
+      notice.className = 'small text-success fw-semibold mb-3';
+      notice.textContent = '✓ ยอดจัดซื้อ/จ้างรายเดือนตรงกับวงเงินรวมของรายการพัสดุ';
+    } else {
+      notice.className = 'small text-warning-emphasis fw-semibold mb-3';
+      notice.textContent = `ยอดจัดซื้อ/จ้างรายเดือน ${planTotal.toLocaleString('th-TH')} บาท และวงเงินรายการพัสดุ ${itemTotal.toLocaleString('th-TH')} บาท ต่างกัน ${Math.abs(planTotal - itemTotal).toLocaleString('th-TH')} บาท — กรุณาตรวจสอบก่อนบันทึก`;
+    }
+  }
+
   function addMasterProcureRow(data = null) {
     const container = document.getElementById('masterProcureContainer');
     const div = document.createElement('div');
@@ -42,6 +88,7 @@
     container.appendChild(div);
     updateMProcRowNumbers();
     calcMasterProcureTotal();
+    updatePlanMoneyCheck();
   }
 
   function updateMProcRowNumbers() {
@@ -90,6 +137,7 @@
         reasonBox.classList.add('d-none');
       }
     }
+    updatePlanMoneyCheck();
   }
 
   function addSdgAlignmentRow(sdgId = '', desc = '') {
@@ -132,7 +180,7 @@
   function createPlanRowHtml(mName, yearVal, rowData = null) {
     const pDraft = rowData ? (rowData.draftPlan || '') : '';
     const pAppr = rowData ? (rowData.approvalPlan || '') : '';
-    const pProc = rowData ? Number(rowData.procurePlan).toLocaleString('en-US') : '';
+    const pProc = rowData && Number(rowData.procurePlan) ? Number(rowData.procurePlan).toLocaleString('en-US') : '';
     const pExec = rowData ? (rowData.executePlan || '') : '';
     const pDisb = rowData ? (rowData.disbursePlan || '') : '';
     const pRepo = rowData ? (rowData.reportPlan || '') : '';
@@ -140,12 +188,12 @@
     return `
       <tr data-month="${mName}" data-year="${yearVal}">
         <td class="fw-bold bg-light">${mName} ${yearVal}</td>
-        <td><input type="number" class="form-control form-control-sm p-draft" step="0.01" value="${pDraft}" oninput="calcPlanTableSummary()"></td>
-        <td><input type="number" class="form-control form-control-sm p-appr" step="0.01" value="${pAppr}" oninput="calcPlanTableSummary()"></td>
-        <td><input type="text" class="form-control form-control-sm p-proc text-end" value="${pProc}" oninput="formatCurrencyInput(this); calcPlanTableSummary()"></td>
-        <td><input type="number" class="form-control form-control-sm p-exec" step="0.01" value="${pExec}" oninput="calcPlanTableSummary()"></td>
-        <td><input type="number" class="form-control form-control-sm p-disb" step="0.01" value="${pDisb}" oninput="calcPlanTableSummary()"></td>
-        <td><input type="number" class="form-control form-control-sm p-repo" step="0.01" value="${pRepo}" oninput="calcPlanTableSummary()"></td>
+        <td><input type="number" class="form-control form-control-sm plan-number-input p-draft" min="0" max="100" step="0.01" inputmode="decimal" placeholder="0–100" value="${pDraft}" aria-label="แผนร่าง ${mName} ${yearVal} ร้อยละ" oninput="calcPlanTableSummary()"></td>
+        <td><input type="number" class="form-control form-control-sm plan-number-input p-appr" min="0" max="100" step="0.01" inputmode="decimal" placeholder="0–100" value="${pAppr}" aria-label="แผนขออนุมัติ ${mName} ${yearVal} ร้อยละ" oninput="calcPlanTableSummary()"></td>
+        <td><input type="text" class="form-control form-control-sm plan-number-input p-proc" inputmode="decimal" placeholder="บาท" value="${pProc}" aria-label="แผนจัดซื้อจัดจ้าง ${mName} ${yearVal} บาท" oninput="formatCurrencyInput(this); calcPlanTableSummary()"></td>
+        <td><input type="number" class="form-control form-control-sm plan-number-input p-exec" min="0" max="100" step="0.01" inputmode="decimal" placeholder="0–100" value="${pExec}" aria-label="แผนดำเนินการ ${mName} ${yearVal} ร้อยละ" oninput="calcPlanTableSummary()"></td>
+        <td><input type="number" class="form-control form-control-sm plan-number-input p-disb" min="0" max="100" step="0.01" inputmode="decimal" placeholder="0–100" value="${pDisb}" aria-label="แผนวางฎีกา ${mName} ${yearVal} ร้อยละ" oninput="calcPlanTableSummary()"></td>
+        <td><input type="number" class="form-control form-control-sm plan-number-input p-repo" min="0" max="100" step="0.01" inputmode="decimal" placeholder="0–100" value="${pRepo}" aria-label="แผนสรุปผล ${mName} ${yearVal} ร้อยละ" oninput="calcPlanTableSummary()"></td>
       </tr>
     `;
   }
@@ -173,6 +221,7 @@
     document.getElementById('planStartMonth').value = firstMonthVal;
     document.getElementById('planStartYear').value = firstYear;
     calcPlanTableSummary();
+    setPlanEditStatus(true);
   }
 
   function appendMonthRow() {
@@ -199,6 +248,21 @@
     document.getElementById('planEndMonth').value = lastMonthVal;
     document.getElementById('planEndYear').value = lastYear;
     calcPlanTableSummary();
+    setPlanEditStatus(true);
+  }
+
+  function capturePlanRows() {
+    return [...document.querySelectorAll('#dynamicPlanTbody tr[data-month]')].map(row => ({
+      month: row.dataset.month,
+      actualYear: Number(row.dataset.year),
+      monthVal: calendarMonths.find(m => m.name === row.dataset.month).val,
+      draftPlan: row.querySelector('.p-draft').value,
+      approvalPlan: row.querySelector('.p-appr').value,
+      procurePlan: getCleanNumber(row.querySelector('.p-proc').value),
+      executePlan: row.querySelector('.p-exec').value,
+      disbursePlan: row.querySelector('.p-disb').value,
+      reportPlan: row.querySelector('.p-repo').value
+    }));
   }
 
   function generateDynamicPlanTable(existingPlanList = null) {
@@ -215,6 +279,25 @@
       return;
     }
 
+    const isUserChange = existingPlanList === null;
+    const previousRows = isUserChange ? capturePlanRows() : existingPlanList;
+    if (isUserChange) {
+      const removedRows = previousRows.filter(row => {
+        const monthKey = row.actualYear * 12 + row.monthVal;
+        return monthKey < startVal || monthKey > endVal;
+      });
+      const savedOrFilled = removedRows.some(row =>
+        planSavedMonthKeys.has(`${row.actualYear}-${row.monthVal}`) ||
+        [row.draftPlan, row.approvalPlan, row.procurePlan, row.executePlan, row.disbursePlan, row.reportPlan]
+          .some(value => Number(value) !== 0)
+      );
+      if (savedOrFilled) {
+        Swal.fire({ icon: 'warning', title: 'ช่วงเวลานี้ตัดเดือนที่มีข้อมูล',
+          text: 'กรุณาคงเดือนที่บันทึกไว้ในช่วงเวลาเดิม หากต้องการขยายโครงการให้เพิ่มเดือนก่อนหน้าหรือเดือนถัดไปได้ทันที' });
+        return;
+      }
+    }
+
     const tbody = document.getElementById('dynamicPlanTbody');
     tbody.innerHTML = '';
 
@@ -224,8 +307,8 @@
     while ((curYear * 12 + curMonth) <= endVal) {
       const mName = calendarMonths.find(m => m.val === curMonth).name;
       let foundRow = null;
-      if (existingPlanList) {
-        foundRow = existingPlanList.find(item => item.actualYear === curYear && item.monthVal === curMonth);
+      if (previousRows) {
+        foundRow = previousRows.find(item => item.actualYear === curYear && item.monthVal === curMonth);
       }
 
       tbody.innerHTML += createPlanRowHtml(mName, curYear, foundRow);
@@ -241,6 +324,7 @@
     document.getElementById('quickAddBtnsBottom').style.setProperty('display', 'flex', 'important');
     updatePlanBudgetDisplay();
     calcPlanTableSummary();
+    if (isUserChange) setPlanEditStatus(true);
   }
 
   function onPlanProjectSelected() {
@@ -248,9 +332,30 @@
     
     const y = document.getElementById('setupYear').value;
     const r = document.getElementById('setupRefId').value;
+    const requestedKey = `${y}:${r}`;
+    if (planDirty && planCurrentProjectKey === requestedKey) return;
+    if (planDirty && planCurrentProjectKey && planCurrentProjectKey !== requestedKey) {
+      Swal.fire({ icon: 'warning', title: 'ยังไม่ได้บันทึกแผนงาน',
+        text: 'บันทึกแผนงานก่อนเปลี่ยนโครงการ มิฉะนั้นข้อมูลที่กรอกใหม่จะหายไป',
+        confirmButtonText: 'เปลี่ยนโดยไม่บันทึก', showCancelButton: true, cancelButtonText: 'กลับไปบันทึก' })
+        .then(result => {
+          if (result.isConfirmed) {
+            setPlanEditStatus(false);
+            onPlanProjectSelected();
+          } else {
+            const [previousYear, previousRefId] = planCurrentProjectKey.split(':');
+            document.getElementById('setupYear').value = previousYear;
+            document.getElementById('setupRefId').value = previousRefId;
+          }
+        });
+      return;
+    }
     const statusEl = document.getElementById('planLoadingStatus');
     
     if (!r) {
+      planCurrentProjectKey = '';
+      planSavedMonthKeys = new Set();
+      setPlanEditStatus(false);
       document.getElementById('dynamicPlanTbody').innerHTML = '<tr><td colspan="7" class="text-muted py-3">กรุณาเลือกรายการโครงการด้านบน</td></tr>';
       document.getElementById('masterProcureContainer').innerHTML = '';
       document.getElementById('sdgAlignmentContainer').innerHTML = '';
@@ -268,6 +373,8 @@
 
     google.script.run
       .withSuccessHandler(res => {
+        planCurrentProjectKey = requestedKey;
+        planSavedMonthKeys = new Set((res.planList || []).map(row => `${row.actualYear}-${row.monthVal}`));
         // 1. เรนเดอร์รายการจัดซื้อจัดจ้าง
         const mContainer = document.getElementById('masterProcureContainer');
         mContainer.innerHTML = '';
@@ -306,6 +413,7 @@
         if (statusEl) {
           statusEl.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i>พร้อมวางแผน</span>';
         }
+        setPlanEditStatus(false);
       })
       .withFailureHandler(err => {
         if (statusEl) {
@@ -365,6 +473,7 @@
       const over = sumProc - allocatedBudget;
       procBadge.innerHTML = `<span class="badge bg-danger">❌ เกินกรอบงบ ${over.toLocaleString('en-US', { minimumFractionDigits: 2 })} บ.</span>`;
     }
+    updatePlanMoneyCheck();
   }
 
   function renderPercentValidation(elemId, value) {
@@ -382,6 +491,34 @@
   }
 
   function saveAnnualPlanData() {
+    const selectedProject = document.getElementById('setupRefId').value;
+    const rowsToSave = document.querySelectorAll('#dynamicPlanTbody tr[data-month]');
+    const emailInput = document.getElementById('setupSubmitterEmail');
+    if (!selectedProject || !rowsToSave.length) {
+      Swal.fire({ icon: 'warning', title: 'ยังไม่มีตารางแผนงาน', text: 'เลือกโครงการและกำหนดช่วงเวลาก่อนบันทึก' });
+      return;
+    }
+    if (!emailInput.value.trim() || !emailInput.checkValidity()) {
+      Swal.fire({ icon: 'warning', title: 'ตรวจสอบอีเมลผู้บันทึก', text: 'กรุณากรอกอีเมลที่ถูกต้องก่อนบันทึก' });
+      emailInput.focus();
+      return;
+    }
+    let invalidInput = null;
+    document.querySelectorAll('#dynamicPlanTbody .plan-number-input').forEach(input => {
+      input.classList.remove('is-invalid');
+      if (!input.value.trim()) return;
+      const value = Number(input.value.replace(/,/g, ''));
+      if (!Number.isFinite(value) || value < 0 || (!input.classList.contains('p-proc') && value > 100)) {
+        input.classList.add('is-invalid');
+        invalidInput ||= input;
+      }
+    });
+    if (invalidInput) {
+      Swal.fire({ icon: 'warning', title: 'ตัวเลขในตารางไม่ถูกต้อง',
+        text: 'สัดส่วนต้องอยู่ระหว่าง 0–100% และจำนวนเงินต้องไม่ติดลบ' });
+      invalidInput.focus();
+      return;
+    }
     let totalProcureBudget = 0;
     document.querySelectorAll('.mproc-row').forEach(row => {
       totalProcureBudget += getCleanNumber(row.querySelector('.mproc-bgt').value);
@@ -470,6 +607,8 @@
       .withSuccessHandler(res => {
         btn.disabled = false;
         btn.innerHTML = originalText;
+        planSavedMonthKeys = new Set(capturePlanRows().map(row => `${row.actualYear}-${row.monthVal}`));
+        setPlanEditStatus(false);
         Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, confirmButtonColor: '#198754' });
         loadDashboard();
       })

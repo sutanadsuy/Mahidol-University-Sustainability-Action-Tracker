@@ -8,7 +8,7 @@ const PAGES_SHEETS = [
 ];
 const PAGES_READ_METHODS = new Set([
   'getInitialBootstrapData', 'getMasterLists', 'getExistingProjectPlan',
-  'getProjectMonthlyContext', 'getDashboardReport', 'getProjectYearlyMatrix',
+  'getProjectMonthlyContext', 'getDashboardReport', 'getDashboardReportJson', 'getProjectYearlyMatrix',
   'getMasterBudgetDocs', 'getStepWeights'
 ]);
 let pagesCachedSheets;

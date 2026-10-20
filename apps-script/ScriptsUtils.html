@@ -167,8 +167,6 @@
     populateSelect('dashRefId', true);
     populateSelect('actRefId', false);
     populateSelect('setupRefId', false);
-    if (typeof onPlanProjectSelected === 'function') onPlanProjectSelected();
-    if (typeof checkMonthlyContext === 'function') checkMonthlyContext();
   }
 
   function updateMatrixRefDropdown() {
@@ -179,9 +177,6 @@
       masterData.projects.forEach(i => {
         select.innerHTML += `<option value="${i.id}">${i.id} - ${i.name}</option>`;
       });
-    }
-    if (typeof loadTrackingMatrix === 'function') {
-      loadTrackingMatrix();
     }
   }
 </script>

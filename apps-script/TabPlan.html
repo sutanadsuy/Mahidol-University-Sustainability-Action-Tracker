@@ -50,7 +50,7 @@
         <input type="email" id="setupSubmitterEmail" class="form-control" placeholder="your.email@mahidol.ac.th" required>
       </div>
       <div class="col-md-4 text-end">
-        <button class="btn btn-outline-success w-100" onclick="generateDynamicPlanTable()"><i class="bi bi-arrow-repeat me-1"></i>สร้างตารางใหม่ตามช่วงเวลา</button>
+        <button type="button" class="btn btn-outline-success w-100" onclick="generateDynamicPlanTable()"><i class="bi bi-arrow-repeat me-1"></i>ปรับตารางตามช่วงเวลา</button>
       </div>
     </div>
 
@@ -58,6 +58,16 @@
       <button type="button" class="btn btn-sm btn-outline-primary" onclick="prependMonthRow()"><i class="bi bi-plus-circle me-1"></i>+ เพิ่มเดือนก่อนหน้า (ย้อนหลัง 1 เดือน)</button>
     </div>
 
+    <div class="alert alert-light border small py-2 mb-2" role="note">
+      <i class="bi bi-lightbulb text-warning me-1"></i>
+      กรอกสัดส่วนของแต่ละขั้นตอนในเดือนที่วางแผนให้ทำ รวมแต่ละคอลัมน์ให้ได้ 100%;
+      <strong class="text-primary">คอลัมน์สีฟ้าคือเงินจัดซื้อ/จ้าง (บาท)</strong> และรวมไม่ควรเกินงบโครงการ
+      <span class="d-lg-none d-block mt-1"><i class="bi bi-arrow-left-right me-1"></i>เลื่อนตารางซ้าย–ขวาเพื่อดูทุกขั้นตอน</span>
+    </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 small mb-2">
+      <span class="text-muted">ช่องว่างหมายถึงไม่มีแผนในเดือนนั้น • เพิ่มเดือนก่อน/หลังได้โดยไม่ต้องเริ่มกรอกใหม่</span>
+      <span id="planEditStatus" class="badge bg-light text-secondary border" role="status">ยังไม่มีการแก้ไข</span>
+    </div>
     <div class="table-responsive">
       <table class="table table-bordered text-center align-middle" id="annualPlanTable">
         <thead class="table-light">
@@ -65,7 +75,7 @@
             <th>เดือน / ปี</th>
             <th>1. ร่าง (%)</th>
             <th>2. ขออนุมัติ (%)</th>
-            <th>3. จัดซื้อ/จ้าง (บาท)</th>
+            <th scope="col">3. จัดซื้อ/จ้าง<br><small class="fw-normal">จำนวนเงิน (บาท)</small></th>
             <th>4. ดำเนินการ (%)</th>
             <th>5. วางฎีกา (%)</th>
             <th>6. สรุปผล (%)</th>
@@ -96,6 +106,8 @@
         </tfoot>
       </table>
     </div>
+
+    <div id="planMoneyCheck" class="small text-muted mb-3" role="status"></div>
 
     <div class="d-flex justify-content-start mt-2 mb-4" id="quickAddBtnsBottom" style="display: none !important;">
       <button type="button" class="btn btn-sm btn-outline-primary" onclick="appendMonthRow()"><i class="bi bi-plus-circle me-1"></i>+ เพิ่มเดือนถัดไป (ขยายต่อท้าย 1 เดือน)</button>
@@ -152,7 +164,7 @@
     </div>
 
     <div class="text-end mt-3">
-      <button class="btn btn-success px-4" id="planSaveBtn" onclick="saveAnnualPlanData()">บันทึกแผนงานโครงการทั้งหมด</button>
+      <button type="button" class="btn btn-success px-4" id="planSaveBtn" onclick="saveAnnualPlanData()">บันทึกแผนงานโครงการทั้งหมด</button>
     </div>
   </div>
 </div>

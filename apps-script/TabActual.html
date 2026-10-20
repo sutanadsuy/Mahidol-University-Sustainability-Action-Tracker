@@ -289,29 +289,48 @@
               <textarea id="actSummary" class="form-control" rows="3" placeholder="ระบุผลการดำเนินงานเด่น ปัญหา ความคืบหน้าสำคัญ หรือสิ่งที่ได้ดำเนินการในเดือนนี้..." required></textarea>
             </div>
             
-            <!-- ส่วนอัปโหลดไฟล์ และแสดงประวัติไฟล์ที่เคยบันทึกไว้ -->
+            <!-- ไฟล์ประกอบรายงานรายเดือนและประวัติการแก้ไข -->
             <div class="col-12">
               <label class="form-label fw-bold">แนบไฟล์รูปกิจกรรม / เล่มรายงานสรุปทั่วไป (PDF, รูปภาพ)</label>
               <input type="file" id="actFiles" class="form-control d-none" multiple accept=".pdf,image/*" onchange="handleStagingFiles(this)">
-              <div class="border rounded p-3 bg-light text-center" style="border-style: dashed !important; cursor: pointer;" onclick="document.getElementById('actFiles').click()">
+              <input type="file" id="actReplacementFile" class="d-none" accept=".pdf,image/*" onchange="handleReplacementFile(this)">
+              <div class="border rounded p-3 bg-light text-center" style="border-style: dashed !important; cursor: pointer;" onclick="document.getElementById('actFiles').click()" ondragover="event.preventDefault()" ondrop="event.preventDefault(); handleStagingFiles(event.dataTransfer)">
                 <i class="bi bi-cloud-arrow-up-fill fs-3 text-primary"></i>
                 <p class="mb-1 fw-bold text-secondary">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</p>
-                <small class="text-muted">(รูปภาพจะถูกบีบอัดขนาดอัตโนมัติ | รองรับ PDF และภาพถ่าย)</small>
+                <small class="text-muted">ไฟล์ใหม่จะบันทึกเมื่อกด “บันทึก / แก้ไขผลงานรายเดือน”</small>
               </div>
               <div id="fileQueueContainer" class="mt-2"></div>
 
-              <!-- รายการไฟล์เดิมที่เคยอัปโหลดไว้แล้วในรอบเดือนนี้ (พร้อมปุ่มเปิดดูและลบ) -->
               <div class="mt-3 p-3 border rounded bg-white" id="uploadedFilesWrapper">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <span class="fw-bold small text-secondary">
-                    <i class="bi bi-folder-check text-success me-1"></i> เอกสารและรูปภาพที่บันทึกไว้ในรอบเดือนนี้
+                    <i class="bi bi-folder-check text-success me-1"></i> ไฟล์ที่ใช้งานในเดือนนี้
                   </span>
                   <span id="uploadedFilesCountBadge" class="badge bg-light text-muted border">0 รายการ</span>
                 </div>
+                <p class="small text-muted mb-2">เปิดดู แทนที่ไฟล์ที่อัปผิด หรือนำไฟล์ออกได้ โดยระบบจะเก็บชื่อและเวลาของไฟล์เดิมในประวัติ</p>
                 <div id="uploadedFilesListContainer">
                   <small class="text-muted italic">ยังไม่มีไฟล์ที่เคยบันทึกในรอบเดือนนี้</small>
                 </div>
               </div>
+
+              <details class="mt-3 p-3 border rounded bg-white" id="attachmentHistoryPanel">
+                <summary class="fw-bold small text-secondary" style="cursor: pointer;">
+                  <i class="bi bi-clock-history text-primary me-1"></i> ประวัติไฟล์ทุกเดือนของโครงการ
+                  <span id="attachmentHistoryCountBadge" class="badge bg-light text-muted border ms-1">0 รายการ</span>
+                </summary>
+                <div class="row g-2 align-items-center mt-2 mb-2">
+                  <div class="col-auto"><label for="attachmentHistoryMonthFilter" class="small text-muted">กรองเดือน</label></div>
+                  <div class="col-sm-4">
+                    <select id="attachmentHistoryMonthFilter" class="form-select form-select-sm" onchange="renderAttachmentHistory()">
+                      <option value="ALL">ทุกเดือน</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="attachmentHistoryContainer" class="small" style="max-height: 320px; overflow-y: auto;">
+                  <span class="text-muted">เลือกโครงการเพื่อดูประวัติไฟล์</span>
+                </div>
+              </details>
             </div>
 
             <div class="col-12 text-end mt-4">

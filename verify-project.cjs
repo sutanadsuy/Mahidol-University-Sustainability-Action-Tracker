@@ -20,6 +20,16 @@ for (const name of includes) {
 }
 console.log(`Verified ${includes.length} unique includes and ${includes.filter(n => n.startsWith('Scripts')).length} scripts`);
 
+const docsBox = { innerHTML: '' };
+const docsContext = vm.createContext({
+  document: { getElementById: id => id === 'masterDocsListContent' ? docsBox : null }
+});
+const dashboardUi = fs.readFileSync(path.join(root, 'ScriptsDashboardUI.html'), 'utf8');
+new vm.Script(dashboardUi.replace(/^\s*<script>\s*|\s*<\/script>\s*$/gi, '')).runInContext(docsContext);
+docsContext.renderMasterDocs([{ docName: 'เอกสารทดสอบ', fileName: null, category: 'ทั่วไป', uploadedAt: '-', url: '#' }]);
+if (!docsBox.innerHTML.includes('เอกสารทดสอบ')) throw new Error('Dashboard documents failed when filename is blank');
+console.log('Verified dashboard documents with blank filename');
+
 const gsFiles = fs.readdirSync(root).filter(name => name.endsWith('.gs'));
 const serverFunctions = new Map();
 for (const name of gsFiles) {

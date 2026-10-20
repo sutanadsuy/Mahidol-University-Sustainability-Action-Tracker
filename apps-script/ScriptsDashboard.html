@@ -1,5 +1,21 @@
 <script>
   let chartProgress = null, chartExpense = null, chartSdg = null;
+  let dashboardRequestId = 0;
+
+  function showDashboardError(message) {
+    const statusBadge = document.getElementById('dashLoadingStatus');
+    if (!statusBadge) return;
+    statusBadge.innerHTML = '';
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2';
+    badge.textContent = message;
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'btn btn-sm btn-outline-danger ms-2 py-0';
+    retry.textContent = 'ลองใหม่';
+    retry.onclick = loadDashboard;
+    statusBadge.append(badge, retry);
+  }
 
   window.onload = function() {
     initYearDropdowns();
@@ -74,26 +90,8 @@
       console.error('getInitialBootstrapData failed:', err);
     }).getInitialBootstrapData(currentYear);
 
-    // Call 2: โหลดข้อมูล Dashboard ทันที
-    google.script.run.withSuccessHandler(res => {
-      if (!res) return;
-      populateAsOfMonthDropdown(res.timelineKeys);
-      renderDashboardUI(res);
-
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-      if (statusBadge) {
-        statusBadge.innerHTML = `
-          <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
-            <i class="bi bi-check-circle-fill me-1"></i>อัปเดตข้อมูลแล้ว (${timeStr} น.)
-          </span>
-        `;
-      }
-    }).withFailureHandler(err => {
-      if (statusBadge) {
-        statusBadge.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>เกิดข้อผิดพลาดในการโหลด</span>`;
-      }
-    }).getDashboardReport(currentYear, 'ALL', 'ALL', 'ALL');
+    // โหลดรายงานแยกจากข้อมูลตัวกรอง เพื่อให้แสดงข้อผิดพลาดของแต่ละคำขอได้ชัดเจน
+    loadDashboard();
   };
 
   function dataTotalFormat(val) {
@@ -177,34 +175,45 @@
       `;
     }
 
+    const requestId = ++dashboardRequestId;
+    const timeoutId = setTimeout(() => {
+      if (requestId === dashboardRequestId) {
+        showDashboardError('รอข้อมูลนานเกิน 45 วินาที กรุณาลองใหม่');
+      }
+    }, 45000);
+
     google.script.run
       .withSuccessHandler(res => {
-        if (!res) return;
-        populateAsOfMonthDropdown(res.timelineKeys);
-        document.getElementById('dashAsOfMonth').value = asOfMonth; 
+        clearTimeout(timeoutId);
+        if (requestId !== dashboardRequestId) return;
+        try {
+          const report = typeof res === 'string' ? JSON.parse(res) : res;
+          if (!report || !report.kpi) throw new Error('เซิร์ฟเวอร์ส่งข้อมูลรายงานไม่ครบ');
+          populateAsOfMonthDropdown(report.timelineKeys);
+          document.getElementById('dashAsOfMonth').value = asOfMonth;
+          renderDashboardUI(report);
 
-        renderDashboardUI(res);
-
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-        if (statusBadge) {
-          statusBadge.innerHTML = `
-            <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
-              <i class="bi bi-check-circle-fill me-1"></i>อัปเดตข้อมูลแล้ว (${timeStr} น.)
-            </span>
-          `;
+          const now = new Date();
+          const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+          if (statusBadge) {
+            statusBadge.innerHTML = `
+              <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
+                <i class="bi bi-check-circle-fill me-1"></i>อัปเดตข้อมูลแล้ว (${timeStr} น.)
+              </span>
+            `;
+          }
+        } catch (error) {
+          console.error('Dashboard display failed:', error);
+          showDashboardError('แสดงรายงานไม่สำเร็จ: ' + error.message);
         }
       })
       .withFailureHandler(err => {
-        if (statusBadge) {
-          statusBadge.innerHTML = `
-            <span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2">
-              <i class="bi bi-exclamation-triangle-fill me-1"></i>เกิดข้อผิดพลาดในการโหลด
-            </span>
-          `;
-        }
+        clearTimeout(timeoutId);
+        if (requestId !== dashboardRequestId) return;
+        console.error('getDashboardReport failed:', err);
+        showDashboardError('โหลดรายงานไม่สำเร็จ: ' + (err && err.message ? err.message : 'ไม่ทราบสาเหตุ'));
       })
-      .getDashboardReport(year, dept, refId, asOfMonth);
+      .getDashboardReportJson(year, dept, refId, asOfMonth);
   }
 
   function drillDownToProject(projectId) {

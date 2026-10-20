@@ -10,7 +10,7 @@ const SHEETS = [
 ];
 const READ_METHODS = new Set([
   'getInitialBootstrapData', 'getMasterLists', 'getExistingProjectPlan',
-  'getProjectMonthlyContext', 'getDashboardReport', 'getProjectYearlyMatrix',
+  'getProjectMonthlyContext', 'getDashboardReport', 'getDashboardReportJson', 'getProjectYearlyMatrix',
   'getMasterBudgetDocs', 'getAllMasterBudgetDocsForAdmin', 'getStepWeights'
 ]);
 const SOURCE_FILES = [

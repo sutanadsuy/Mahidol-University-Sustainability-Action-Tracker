@@ -1,4 +1,73 @@
 <script>
+  let latestPortfolioReport = null;
+
+  function escapeDashboardHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+  }
+
+  function renderPortfolioComparison(report = latestPortfolioReport) {
+    if (!report) return;
+    latestPortfolioReport = report;
+    const body = document.getElementById('portfolioComparisonBody');
+    const summary = document.getElementById('portfolioBudgetSummary');
+    if (!body || !summary) return;
+    const rows = report.projectStatusList || [];
+    const totalAllocated = rows.reduce((sum, p) => sum + (Number(p.budget) || 0), 0);
+    const masterBudget = Number(report.kpi && report.kpi.totalMasterBudget) || 0;
+    const selectedDept = document.getElementById('dashDept')?.value || 'ALL';
+    const allocatedText = totalAllocated.toLocaleString('th-TH', { maximumFractionDigits: 0 });
+    if (selectedDept === 'ALL') {
+      const unallocated = masterBudget - totalAllocated;
+      summary.textContent = `กรอบงบปีนี้ ${masterBudget.toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท • จัดสรรให้โครงการแล้ว ${allocatedText} บาท • ${unallocated >= 0 ? 'ยังไม่จัดสรร' : 'จัดสรรเกินกรอบ'} ${Math.abs(unallocated).toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท`;
+    } else {
+      summary.textContent = `งบจัดสรรของหน่วยงานนี้ ${allocatedText} บาท • แสดง ${rows.length} โครงการ`;
+    }
+
+    const filter = document.getElementById('portfolioStatusFilter')?.value || 'ALL';
+    const pendingIds = new Set((report.pendingSubmissionsList || []).map(p => String(p.id)));
+    const priority = { Delayed: 0, Revising: 1, 'On Track': 2, Completed: 3 };
+    const visible = rows.filter(p => filter === 'ALL' || p.status === filter)
+      .sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9) || Number(a.diff) - Number(b.diff));
+    if (!visible.length) {
+      body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">ไม่มีโครงการตามสถานะที่เลือก</td></tr>';
+      return;
+    }
+
+    body.innerHTML = visible.map(p => {
+      const budget = Number(p.budget) || 0;
+      const spent = Number(p.spent) || 0;
+      const diff = Number(p.diff) || 0;
+      const notStarted = p.status === 'On Track' && !(Number(p.plan) || 0) && !(Number(p.act) || 0);
+      const statusText = p.status === 'Completed' ? 'แล้วเสร็จ' :
+        p.status === 'Delayed' ? 'ล่าช้า' :
+        p.status === 'Revising' ? 'กำลังปรับแผน' : notStarted ? 'ยังไม่เริ่ม' :
+        diff > 0.01 ? 'เร็วกว่าแผน' : 'ตามแผน';
+      const statusClass = p.status === 'Delayed' ? 'text-bg-danger' :
+        p.status === 'Revising' ? 'text-bg-warning' :
+        p.status === 'Completed' ? 'text-bg-success' : notStarted ? 'text-bg-secondary' : 'text-bg-info';
+      const actions = [];
+      if (p.status === 'Delayed') actions.push('ติดตามสาเหตุและแผนแก้ไข');
+      if (p.status === 'Revising') actions.push('ยืนยันช่วงเวลาแผนใหม่');
+      if (p.status === 'Completed') actions.push('ตรวจเอกสารปิดโครงการ');
+      if (spent > budget && budget > 0) actions.push('ตรวจยอดจ่ายเกินงบ');
+      if (pendingIds.has(String(p.id))) actions.push('รอรายงานผลเดือนนี้');
+      const followUp = actions.join(' · ') || 'ติดตามตามรอบ';
+      const diffClass = diff < -0.01 ? 'text-danger' : diff > 0.01 ? 'text-success' : 'text-secondary';
+      return `<tr>
+        <td style="min-width: 260px;"><button type="button" class="btn btn-link text-start p-0 fw-semibold text-decoration-none" data-project-id="${escapeDashboardHtml(p.id)}" onclick="drillDownToProject(this.dataset.projectId)">${escapeDashboardHtml(p.name)}</button><div class="text-muted small">${escapeDashboardHtml(p.id)}</div></td>
+        <td class="text-end">${budget.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</td>
+        <td class="text-end ${spent > budget && budget > 0 ? 'text-danger fw-semibold' : ''}">${spent.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</td>
+        <td class="text-center">${(Number(p.plan) || 0).toFixed(1)}%</td>
+        <td class="text-center fw-semibold">${(Number(p.act) || 0).toFixed(1)}%</td>
+        <td class="text-center fw-semibold ${diffClass}">${diff > 0 ? '+' : ''}${diff.toFixed(1)}%</td>
+        <td class="text-center"><span class="badge ${statusClass}">${statusText}</span></td>
+        <td class="small">${followUp}</td>
+      </tr>`;
+    }).join('');
+  }
+
   function getDirectDriveImageUrl(url) {
     if (!url) return '';
     const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
@@ -25,6 +94,7 @@
     const sdgChartCard = document.getElementById('sdgChartCard');
     const overviewRightCards = document.getElementById('overviewRightCards');
     const singleProjectFilesCard = document.getElementById('singleProjectFilesCard');
+    const portfolioComparisonCard = document.getElementById('portfolioComparisonCard');
 
     renderMasterDocs(res.masterDocs || []);
 
@@ -35,6 +105,8 @@
       if (sdgChartCard) sdgChartCard.classList.remove('d-none');
       if (overviewRightCards) overviewRightCards.classList.remove('d-none');
       if (singleProjectFilesCard) singleProjectFilesCard.classList.add('d-none');
+      if (portfolioComparisonCard) portfolioComparisonCard.classList.remove('d-none');
+      renderPortfolioComparison(res);
 
       const projHeaderCard = document.getElementById('singleProjectHeaderCard');
       if (projHeaderCard) projHeaderCard.classList.add('d-none');
@@ -103,6 +175,7 @@
       if (sdgChartCard) sdgChartCard.classList.add('d-none');
       if (overviewRightCards) overviewRightCards.classList.add('d-none');
       if (singleProjectFilesCard) singleProjectFilesCard.classList.remove('d-none');
+      if (portfolioComparisonCard) portfolioComparisonCard.classList.add('d-none');
 
       let projHeaderCard = document.getElementById('singleProjectHeaderCard');
       if (!projHeaderCard && teamBox) {
@@ -286,7 +359,8 @@
       return;
     }
     box.innerHTML = docs.map(d => {
-      const isPdf = d.fileName.toLowerCase().endsWith('.pdf');
+      const fileName = String(d.fileName || d.docName || '');
+      const isPdf = fileName.toLowerCase().endsWith('.pdf');
       const iconClass = isPdf ? 'bi-file-earmark-pdf text-danger' : 'bi-file-earmark-word text-primary';
       const latestBadge = d.isLatest ? '<span class="badge bg-danger ms-1" style="font-size:0.65rem;">ล่าสุด (ยึดฉบับนี้)</span>' : '';
       return `

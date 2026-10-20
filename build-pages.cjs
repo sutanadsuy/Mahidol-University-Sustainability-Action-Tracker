@@ -3,7 +3,7 @@ const path = require('path');
 const root = __dirname;
 const source = path.join(root, 'apps-script');
 const output = path.join(root, 'docs');
-const appScriptUrl = 'https://script.google.com/a/macros/mahidol.ac.th/s/AKfycbzN5DwkM8fZ_5Pur94BRKtqttV1HyIdyzLr7Ww9r95d8yrLMlr_HYJ0glttJGKulayl/exec';
+const appScriptUrl = 'https://script.google.com/a/macros/mahidol.ac.th/s/AKfycbwktgmYgRjStHCH6QBz4m-SU6q9sTuk4Up6lZEJBPX1Lc-lCXrhzUvs_jnjAFdtNESfkA/exec';
 fs.mkdirSync(output, { recursive: true });
 
 let html = fs.readFileSync(path.join(source, 'Index.html'), 'utf8');

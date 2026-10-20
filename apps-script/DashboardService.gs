@@ -482,6 +482,11 @@ function getDashboardReport(fiscalYear, dept, refId, asOfMonthKey) {
   };
 }
 
+// ส่งรายงานผ่าน JSON เพื่อให้ google.script.run ส่งโครงสร้างข้อมูลซ้อนกันได้ครบ
+function getDashboardReportJson(fiscalYear, dept, refId, asOfMonthKey) {
+  return JSON.stringify(getDashboardReport(fiscalYear, dept, refId, asOfMonthKey));
+}
+
 // ฟังก์ชันดึงข้อมูลตารางเมทริกซ์ สรุปแผน vs ผล
 function getProjectYearlyMatrix(fiscalYear, refId) {
   const ss = getAppSpreadsheet();

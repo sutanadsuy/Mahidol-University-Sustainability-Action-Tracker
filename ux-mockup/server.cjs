@@ -8,7 +8,7 @@ const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascrip
 
 http.createServer((request, response) => {
   const pathname = new URL(request.url, 'http://127.0.0.1').pathname;
-  const file = path.resolve(root, pathname === '/' ? 'index.html' : `.${pathname}`);
+  const file = path.resolve(root, pathname === '/' || pathname === '/index.html' ? 'starter.html' : `.${pathname}`);
   if (!file.startsWith(`${root}${path.sep}`) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
     response.writeHead(404);
     response.end('Not found');

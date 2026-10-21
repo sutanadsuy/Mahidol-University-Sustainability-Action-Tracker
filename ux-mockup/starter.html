@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mahidol Sustainability Action Tracker · ทดลองเริ่มจากข้อมูลว่าง</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="starter.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="เมนูหลัก">
+      <div class="brand"><span class="brand-mark">MU</span><div><strong>Sustainability<br>Action Tracker</strong><small>ทดลองทำเองตั้งแต่ต้น</small></div></div>
+      <nav class="side-nav">
+        <button class="nav-item active" data-page="home"><span class="nav-icon">⌂</span> หน้าแรก</button>
+        <button class="nav-item" data-page="dashboard"><span class="nav-icon">◫</span> ภาพรวมงบและโครงการ</button>
+        <button class="nav-item" data-page="report"><span class="nav-icon">✎</span> บันทึกผลรายเดือน</button>
+        <button class="nav-item" data-page="review"><span class="nav-icon">▤</span> ติดตามแผนและผล</button>
+        <button class="nav-item" data-page="plan"><span class="nav-icon">▦</span> วางแผนโครงการ</button>
+        <button class="nav-item" data-page="archive"><span class="nav-icon">▤</span> รายงานย้อนหลัง</button>
+        <button class="nav-item" data-page="admin"><span class="nav-icon">▣</span> จัดการระบบ (แอดมิน)</button>
+      </nav>
+      <div class="sidebar-foot"><span class="pulse-dot"></span> บันทึกเฉพาะในเบราว์เซอร์นี้</div>
+    </aside>
+    <main class="main-area">
+      <header class="topbar"><div class="mobile-brand">MU <span>Sustainability Action Tracker</span></div><div class="topbar-right"><span class="prototype-pill">โหมดทดลอง · ไม่เชื่อมข้อมูลจริง</span><span class="avatar" title="ผู้ทดลองใช้งาน">คุณ</span></div></header>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <div id="screen" class="starter-screen"></div>
+    </main>
+  </div>
+  <script src="starter.js"></script>
+</body>
+</html>

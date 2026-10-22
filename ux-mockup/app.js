@@ -362,10 +362,17 @@
 
   $('#save-report').addEventListener('click', () => {
     if (updateValidation().length) { setStep(4); return; }
+    window.dispatchEvent(new CustomEvent('mockup:report-before-save', { detail: { files: state.queue.map(item => item.file).filter(Boolean) } }));
     applyStagedFiles();
     const forecastValue = $('#forecast-end').value;
     executiveProjects[0].forecastEnd = forecastValue.replace('ตุลาคม', 'ต.ค.').replace('พฤศจิกายน', 'พ.ย.').replace('ธันวาคม', 'ธ.ค.').replace('มกราคม', 'ม.ค.');
     executiveProjects[0].finishIndex = 4 + $('#forecast-end').selectedIndex;
+    if ($('#report-period').value === 'กันยายน 2569') {
+      const paidThisMonth = $$('.paid-input').reduce((sum, input) => sum + Math.max(0, Number(input.value) || 0), 0);
+      executiveProjects[0].snapshots.sep.actual = computeProgress();
+      executiveProjects[0].snapshots.sep.paid = 770000 + paidThisMonth;
+      executiveProjects[0].actualSeries[3] = computeProgress();
+    }
     if ($('#delay').value.trim()) executiveProjects[0].reason = $('#delay').value.trim();
     window.saveSdgMock?.();
     renderExecutive();
@@ -383,6 +390,7 @@
     validation.append(message, button);
     validation.classList.remove('error');
     toast('บันทึกข้อมูลตัวอย่างสำเร็จ · ไม่มีข้อมูลส่งไปยังระบบจริง');
+    window.dispatchEvent(new CustomEvent('mockup:report-saved', { detail: { savedAt: state.savedAt } }));
   });
 
   window.addEventListener('beforeunload', event => {
@@ -390,6 +398,18 @@
     event.preventDefault();
     event.returnValue = '';
   });
+
+  window.mockup = {
+    navigate,
+    setStep,
+    updateReport,
+    computeProgress,
+    getExecutiveData: () => ({ projects: executiveProjects.map(project => ({ ...project, snapshots: { ...project.snapshots } })), asOf: $('#exec-asof').value }),
+    getState: () => state,
+    markDraftSaved: () => { state.reportDirty = false; setStatus('report', 'บันทึกร่างบนเครื่องนี้แล้ว', 'saved'); },
+    markDirty,
+    toast
+  };
 
   updatePlan();
   renderQueue();

@@ -6,13 +6,16 @@
   <title>ต้นแบบหน้าจอ Sustainability Action Tracker</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="admin-control.css">
+  <link rel="stylesheet" href="experience.css">
+  <link rel="stylesheet" href="report-studio.css">
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar" aria-label="เมนูหลัก">
       <div class="brand"><span class="brand-mark">MU</span><div><strong>Sustainability<br>Action Tracker</strong><small>ต้นแบบปรับปรุงการใช้งาน</small></div></div>
       <nav class="side-nav">
-        <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span> ภาพรวม</button>
+        <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span> งานของฉัน</button>
         <button class="nav-item" data-view="executive"><span class="nav-icon">◫</span> แดชบอร์ดผู้บริหาร</button>
         <button class="nav-item" data-view="plan"><span class="nav-icon">▦</span> วางแผนโครงการ</button>
         <button class="nav-item" data-view="report"><span class="nav-icon">✎</span> รายงานผลรายเดือน</button>
@@ -31,6 +34,7 @@
 
       <section class="view active" id="view-home">
         <div class="page-head"><div><p class="eyebrow">ภาพรวมการทำงาน</p><h1>เริ่มงานได้จากสิ่งที่ต้องทำ</h1><p class="muted">เลือกงานด้านล่าง ระบบจะพาไปยังขั้นตอนที่เกี่ยวข้อง</p></div><span class="deadline-chip">รอบรายงานถัดไป · ภายในวันที่ 26</span></div>
+        <div class="role-shell card"><div class="role-heading"><div><span class="kicker">มุมมองตามหน้าที่</span><h2>วันนี้ฉันต้องดูอะไร</h2><p>สลับบทบาทเพื่อทดลองว่าระบบควรพาแต่ละคนเริ่มตรงไหน</p></div><div class="role-switch" aria-label="เลือกบทบาทตัวอย่าง"><button type="button" class="role-button active" data-role="reporter" aria-pressed="true">ผู้รายงาน</button><button type="button" class="role-button" data-role="executive" aria-pressed="false">ผู้บริหาร</button><button type="button" class="role-button" data-role="admin" aria-pressed="false">แอดมิน</button></div></div><div id="role-content" aria-live="polite"></div></div>
         <div class="hero-panel"><div><span class="kicker">โครงการตัวอย่าง</span><h2>โครงการจัดการขยะครบวงจร</h2><p>ปีงบประมาณ 2569 · รอบรายงานกันยายน 2569</p></div><div class="hero-stat"><strong id="home-progress">75%</strong><span>ความก้าวหน้าตัวอย่าง</span></div></div>
         <button class="exec-shortcut" data-view="executive"><strong>มุมผู้บริหาร</strong><span>ดูภาพรวมทุกโครงการ งบประมาณ เทียบแผน และเรื่องที่ต้องตัดสินใจ</span><b>เปิดแดชบอร์ด →</b></button>
         <h2 class="section-title">วันนี้ต้องการทำอะไร</h2>
@@ -50,6 +54,7 @@
         <div class="exec-message"><div><span class="exec-message-label">สรุปสำหรับผู้บริหาร</span><h2 id="exec-headline">งานภาพรวมใกล้แผน แต่มีโครงการใหญ่เสี่ยงขยายเวลา</h2><p id="exec-subline">ดูช่องว่างรายโครงการก่อนตัดสินใจ เพราะค่าเฉลี่ยรวมอาจบดบังโครงการที่ล่าช้า</p></div><span class="exec-message-count" id="exec-decision-count">2 เรื่องต้องติดตาม</span></div>
         <div class="exec-kpis"><div class="exec-kpi"><span>โครงการทั้งหมด</span><strong id="exec-project-count">4</strong><small id="exec-status-count">2 ล่าช้า · 1 เร็วกว่าแผน · 1 ตามแผน</small></div><div class="exec-kpi"><span>ผลสะสมเทียบแผน</span><strong id="exec-progress">65.3%</strong><small id="exec-plan-progress">แผน 66.3% · ถ่วงตามน้ำหนักโครงการ</small></div><div class="exec-kpi"><span>งบปีนี้</span><strong id="exec-budget">6.80 ล้านบาท</strong><small id="exec-yoy">ปีก่อน 9.00 ล้านบาท · ลด 24.4%</small></div><div class="exec-kpi"><span>จ่ายออกสะสม</span><strong id="exec-paid">4.08 ล้านบาท</strong><small id="exec-paid-rate">60.0% ของงบปีนี้ · คงเหลือ 2.72 ล้านบาท</small></div></div>
         <div class="card exec-card" id="exec-comparison"><div class="card-title-row"><div><h2>เปรียบเทียบทุกโครงการในปีงบประมาณ 2569</h2><p>เห็นงบ ความก้าวหน้า การจ่ายเงิน และกำหนดเสร็จของทุกโครงการ ณ รอบเดือนเดียวกัน เพื่อไม่ให้โครงการที่เริ่มต่างเวลากันถูกตัดสินจากร้อยละล้วน ๆ</p></div><span class="table-tip">คลิกแถวเพื่อดูรายละเอียด</span></div><div class="table-scroll"><table class="peer-table"><thead><tr><th>โครงการ</th><th>งบปีนี้</th><th>แผนสะสม</th><th>ผลสะสม</th><th>ต่างจากแผน</th><th>จ่ายแล้ว</th><th>คาดเสร็จ</th><th>สถานะ</th></tr></thead><tbody id="exec-peer-body"></tbody></table></div></div>
+        <div class="card exec-card exec-central-doc-card"><div class="card-title-row"><div><h2>เอกสารส่วนกลางที่แอดมินเผยแพร่</h2><p>เปิดเฉพาะฉบับใช้งานที่ตั้งให้แสดงบนแดชบอร์ด</p></div><span class="priority-chip">จากศูนย์เอกสารตัวอย่าง</span></div><div id="exec-central-doc-list" class="exec-central-doc-list"></div></div>
         <div class="exec-grid top">
           <div class="card exec-card"><div class="card-title-row"><div><h2>เรื่องที่ต้องผลักดัน</h2><p>เรียงจากความเสี่ยงและวันตัดสินใจ</p></div><span class="priority-chip">ต้องติดตาม</span></div><div id="exec-actions" class="exec-actions"></div></div>
           <div class="card exec-card"><div class="card-title-row"><div><h2>เทียบงบกับปีที่ผ่านมา</h2><p>การลดงบไม่เท่ากับทำงานได้ดีขึ้นเสมอ ต้องเทียบขอบเขตงานด้วย</p></div></div><div class="yoy-highlight"><span>โครงการที่เลือก</span><strong id="exec-project-budget-yoy">5.00 → 3.00 ล้านบาท</strong><small id="exec-project-budget-change">ลดลง 40% จากปีก่อน</small></div><div id="exec-budget-bars" class="budget-bars"></div></div>
@@ -82,6 +87,8 @@
 
       <section class="view" id="view-report">
         <div class="page-head"><div><p class="eyebrow">ขั้นตอนรายเดือน</p><h1>รายงานผลการดำเนินงาน</h1><p class="muted">กรอกผลของเดือนที่เลือก และตรวจข้อมูลก่อนบันทึก</p></div><span class="status-pill" id="report-status">ยังไม่มีการแก้ไข</span></div>
+        <div class="draft-toolbar card"><div><strong>ทำต่อได้ทุกเมื่อ</strong><span id="draft-note">ยังไม่มีร่างที่บันทึกบนเครื่องนี้ · ไฟล์ที่เลือกจะไม่ถูกเก็บในร่าง</span></div><div class="draft-actions"><button type="button" class="btn quiet-btn" id="resume-draft" hidden>เปิดร่างเดิม</button><button type="button" class="btn quiet-btn" id="save-draft">บันทึกร่าง</button></div></div>
+        <label class="no-progress-choice"><input type="checkbox" id="no-progress"> <span><strong>เดือนนี้ยังไม่มีความก้าวหน้าและไม่มีการจ่ายเงิน</strong><small>ระบบจะใส่ศูนย์ในช่องที่เกี่ยวข้อง แล้วพาไปเขียนสรุปและเหตุผล</small></span></label>
         <div class="card selector-card"><div class="form-grid four"><label>โครงการ<select id="report-project"><option>โครงการจัดการขยะครบวงจร</option></select></label><label>ปีงบประมาณ<input value="2569" readonly></label><label>รอบรายงาน<select id="report-period"><option>กันยายน 2569</option><option>สิงหาคม 2569</option><option>กรกฎาคม 2569</option><option>ตุลาคม 2569</option></select></label><label>สถานะโครงการ<select id="project-state"><option>ดำเนินการปกติ</option><option>อยู่ระหว่างปรับแผน</option><option>ยกเลิกโครงการ</option></select></label></div><div class="selector-hint">บันทึกล่าสุดของรอบตัวอย่าง: 10 กันยายน 2569 เวลา 14:30 น.</div></div>
         <div class="report-layout"><div class="steps-nav" aria-label="ขั้นตอนการรายงาน"><button class="step-btn active" data-step="1"><span>1</span><div><strong>ความก้าวหน้า</strong><small>ผลจริงรายขั้นตอน</small></div></button><button class="step-btn" data-step="2"><span>2</span><div><strong>เงินและหลักฐาน</strong><small>ยอดจ่ายและหลักฐานที่เกี่ยวข้อง</small></div></button><button class="step-btn" data-step="3"><span>3</span><div><strong>สรุปผลและไฟล์</strong><small>เหตุผล รูปภาพ รายงาน</small></div></button><button class="step-btn" data-step="4"><span>4</span><div><strong>ตรวจทาน</strong><small>ก่อนบันทึกข้อมูล</small></div></button></div>
           <div class="step-panel">
@@ -95,16 +102,17 @@
           </div></div>
       </section>
 
+      <section class="view" id="view-report-result">
+        <div class="page-head"><div><p class="eyebrow">ผลลัพธ์หลังส่ง · ข้อมูลตัวอย่าง</p><h1>รายงานหนึ่งหน้าพร้อมใช้</h1><p class="muted">ตรวจความถูกต้องก่อนนำไปใช้ประชุมหรือส่งต่อ</p></div><span class="status-pill saved">บันทึกตัวอย่างแล้ว</span></div>
+        <div class="result-actions"><button class="btn quiet-btn" data-view="home">← กลับไปงานของฉัน</button><button class="btn quiet-btn" data-view="review">ตรวจแผนเทียบผล</button><button class="btn primary-btn" id="print-result">พิมพ์ / บันทึก PDF</button></div>
+        <article class="report-paper" id="report-paper"><div class="paper-top"><div><span class="paper-overline">MAHIDOL UNIVERSITY · SUSTAINABILITY</span><h2>สรุปผลการดำเนินงานประจำเดือน</h2><p>โครงการจัดการขยะครบวงจร · ปีงบประมาณ 2569</p></div><span class="paper-stamp">ตัวอย่าง<br>ไม่ใช่รายงานจริง</span></div><div class="paper-meta"><div><span>รอบรายงาน</span><strong id="result-period">กันยายน 2569</strong></div><div><span>บันทึกเมื่อ</span><strong id="result-saved">—</strong></div><div><span>สถานะ</span><strong id="result-status">—</strong></div></div><div class="paper-kpis"><div><span>แผนสะสม</span><strong>75%</strong></div><div><span>ผลสะสม</span><strong id="result-progress">—</strong></div><div><span>จ่ายเดือนนี้</span><strong id="result-paid">—</strong></div><div><span>จ่ายสะสม</span><strong id="result-total-paid">—</strong></div></div><div class="paper-columns"><div><h3>งานที่ทำในเดือนนี้</h3><p id="result-summary">—</p><h3>ผลลัพธ์ SDG</h3><p id="result-sdg">—</p></div><div><h3>เรื่องที่ต้องติดตาม</h3><p id="result-issue">—</p><h3>เอกสารประกอบ</h3><p id="result-files">—</p></div></div><div class="paper-foot">ข้อมูลในหน้านี้เป็นเพียงตัวอย่างสำหรับทดลองหน้าจอ ไม่มีการส่งข้อมูลไปยัง Google Apps Script หรือ Google Sheets</div></article>
+      </section>
+
       <section class="view" id="view-review"><div class="page-head"><div><p class="eyebrow">ตรวจผลหลังบันทึก</p><h1>แผนเทียบผลรายโครงการ</h1><p class="muted">ดูข้อมูลรายเดือนแบบอ่านอย่างเดียว เพื่อเช็กความถูกต้องหลังบันทึก</p></div><span class="readonly-pill">สำหรับตรวจทาน</span></div><div class="card selector-card"><div class="form-grid three"><label>โครงการ<select><option>โครงการจัดการขยะครบวงจร</option></select></label><label>ปีงบประมาณ<input value="2569" readonly></label><label>แสดงข้อมูลถึง<select><option>กันยายน 2569</option><option>สิงหาคม 2569</option></select></label></div></div><div class="mini-kpis"><div><span>แผนสะสม</span><strong>75%</strong></div><div><span>ผลสะสมตัวอย่าง</span><strong id="review-progress">71.5%</strong></div><div><span>จ่ายออกสะสม</span><strong id="review-total-paid">880,000 บาท</strong></div></div><div class="card table-card"><div class="table-scroll"><table class="review-table"><thead><tr><th>เดือน</th><th>แผนสะสม</th><th>ผลสะสม</th><th>แผนค่าใช้จ่าย</th><th>จ่ายจริง</th><th>สถานะ</th></tr></thead><tbody><tr><th>ก.ค. 2569</th><td>10%</td><td>20%</td><td>0 บาท</td><td>300,000 บาท</td><td><span class="green-badge">ตามแผน</span></td></tr><tr><th>ส.ค. 2569</th><td>60%</td><td>58%</td><td>1,000,000 บาท</td><td>470,000 บาท</td><td><span class="green-badge">ตามแผน</span></td></tr><tr><th>ก.ย. 2569</th><td>75%</td><td id="matrix-execute">68%</td><td>2,000,000 บาท</td><td id="matrix-paid">880,000 บาท</td><td><span class="amber-badge">รอตรวจทาน</span></td></tr></tbody></table></div></div><div class="info-strip"><strong>การตรวจทาน</strong><span>หากพบข้อมูลผิด ให้กลับไปหน้า “รายงานผลรายเดือน” และเลือกรอบรายงานเดิมเพื่อแก้ไข</span><button class="btn quiet-btn" data-view="report">แก้ไขข้อมูล</button></div></section>
       <section class="view" id="view-admin">
-        <div class="page-head"><div><p class="eyebrow">สำหรับผู้ดูแลระบบ</p><h1>เตรียมข้อมูลและเอกสารให้พร้อมก่อนใช้งาน</h1><p class="muted">เริ่มจากปีงบประมาณและโครงการ แล้วจัดชุดเอกสารที่ผู้ใช้หาได้จากจุดเดียว</p></div><span class="readonly-pill">ต้นแบบ · ไม่อัปโหลดไฟล์จริง</span></div>
-        <div class="admin-overview">
-          <div><span>โครงการในปี 2569</span><strong>4</strong><small>มีผู้รับผิดชอบครบทุกโครงการ</small></div>
-          <div><span>เอกสารส่วนกลาง</span><strong>2 รายการ</strong><small>อนุมัติแผนใหญ่และจัดสรรงบ</small></div>
-          <div><span>โครงการพร้อมเริ่มงาน</span><strong id="admin-ready-count">3/4 พร้อม</strong><small>เอกสารขั้นถัดไปติดตามแยกต่างหาก</small></div>
-          <div><span>ผู้ใช้ค้นหาเอกสารจาก</span><strong>ชื่อ / รหัส / ปี</strong><small>เห็นเฉพาะฉบับที่ใช้งานอยู่</small></div>
-        </div>
-        <div class="admin-workflow"><strong>ลำดับงานของแอดมิน</strong><span>1 · ตั้งงบและโครงการ</span><span>2 · เตรียมเอกสารส่วนกลาง</span><span>3 · ผูกเอกสารกับโครงการ</span><span>4 · ตรวจความพร้อมและเผยแพร่</span></div>
+        <div class="page-head"><div><p class="eyebrow">สำหรับผู้ดูแลระบบ</p><h1>ศูนย์งานแอดมิน</h1><p class="muted">ตรวจงบ คนรับผิดชอบ ค่าน้ำหนัก และเอกสารที่ผู้ใช้ต้องหยิบไปใช้</p></div><span class="readonly-pill">ต้นแบบ · ไม่เปลี่ยนข้อมูลจริง</span></div>
+        <div id="admin-control-root"></div>
+        <div class="admin-documents-head" id="admin-documents"><div><p class="eyebrow">เอกสารพร้อมใช้</p><h2>ศูนย์เอกสารอ้างอิงและชุดเอกสารโครงการ</h2><p>ฉบับที่ใช้งานกับฉบับที่แสดงบนแดชบอร์ดควรตรวจแยกกัน</p></div><span id="admin-ready-count">3/4 พร้อม</span></div>
         <div class="admin-grid">
           <div class="card admin-card">
             <div class="card-title-row"><div><h2>ศูนย์เอกสารอ้างอิง</h2><p>ค้นได้ทั้งเอกสารส่วนกลางและเอกสารเฉพาะโครงการ</p></div><span class="priority-chip">ตัวอย่าง</span></div>
@@ -128,13 +136,15 @@
           </div>
           <div class="card admin-card"><div class="card-title-row"><div><h2>รายละเอียดเอกสาร</h2><p>ตรวจฉบับที่ใช้งาน ผู้รับผิดชอบ และประวัติการแทนที่</p></div></div><div id="admin-doc-detail" class="admin-doc-detail">เลือกเอกสารจากตารางทางซ้ายเพื่อดูรายละเอียด</div><div class="admin-safety-note">ก่อนเผยแพร่ ให้ตรวจสิทธิ์การอ่านของไฟล์จริง โดยเฉพาะหนังสืองบประมาณและข้อมูลที่ไม่ควรเปิดด้วยลิงก์สาธารณะ</div></div>
         </div>
-        <div class="admin-settings card"><h2>ข้อมูลหลักที่แอดมินยังต้องดูแล</h2><div><span><strong>งบรวมประจำปี</strong> 6.80 ล้านบาทในตัวอย่าง</span><span><strong>หน่วยงานและผู้รับผิดชอบ</strong> กำหนดเจ้าของข้อมูล</span><span><strong>ค่าน้ำหนักความก้าวหน้า</strong> ต้องมีประวัติเมื่อแก้ไข</span><span><strong>SDG และตัวชี้วัด</strong> ตรวจให้สอดคล้องกับหลักฐาน</span></div></div>
       </section>
     </main>
   </div>
   <input id="replacement-picker" type="file" accept=".pdf,image/*" hidden>
   <script src="app.js"></script>
   <script src="admin.js"></script>
+  <script src="admin-control.js"></script>
+  <script src="experience.js"></script>
+  <script src="report-studio.js"></script>
 </body>
 </html>
 

@@ -3,13 +3,15 @@
 
   const KEY = 'mu-scurve-empty-workspace-v1';
   const FILE_DB = 'mu-scurve-empty-files-v1';
+  const ADMIN_PANELS_KEY = 'mu-scurve-admin-panels-v1';
+  const INITIAL_ADMIN_EMAIL = 'sutanad.suy@mahidol.ac.th';
   const monthsTh = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
   const stages = [
     ['draft', 'ร่าง (%)'], ['approval', 'ขออนุมัติ (%)'], ['procure', 'จัดซื้อ (บาท)'],
     ['execute', 'ดำเนินการ (%)'], ['disburse', 'วางฎีกา (%)'], ['summary', 'สรุปผล (%)']
   ];
   const defaultWeights = { draft: 5, approval: 5, execute: 75, disburse: 5, summary: 10 };
-  const empty = () => ({ budgets: {}, departments: [], projects: [], plans: {}, reports: [], documents: [], weights: {}, history: [] });
+  const empty = () => ({ budgets: {}, departments: [], projects: [], plans: {}, reports: [], documents: [], weights: {}, history: [], admins: [{ email: INITIAL_ADMIN_EMAIL, role: 'ผู้ดูแลหลัก', addedAt: 'ผู้ดูแลหลักเริ่มต้น', addedBy: 'ระบบ', isPrimary: true }], yearStatus: {} });
   const $ = selector => document.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const screen = $('#screen');
@@ -37,7 +39,10 @@
     } catch { return empty(); }
   };
   let db = load();
+  if (!Array.isArray(db.admins) || !db.admins.length) db.admins = empty().admins;
+  if (!db.yearStatus || typeof db.yearStatus !== 'object') db.yearStatus = {};
   let ui = { page: 'home', year: Number(db.lastYear) || 2569, projectId: '', month: db.lastMonth || '', reportId: '', editDept: '', editProject: '', editDoc: '', replaceFileId: '' };
+  let adminPanels = (() => { try { return JSON.parse(localStorage.getItem(ADMIN_PANELS_KEY) || '{}') || {}; } catch { return {}; } })();
   let toastTimer;
   let fileDbPromise;
 
@@ -56,9 +61,20 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => box.classList.remove('show'), 4800);
   }
-  function log(section, action, detail) {
-    db.history.unshift({ id: uid(), section, action, detail, at: now() });
+  function log(section, action, detail, before, after) {
+    const entry = { id: uid(), section, action, detail, at: now(), actor: 'ผู้ใช้ทดลอง' };
+    if (before !== undefined) entry.before = before == null ? null : JSON.parse(JSON.stringify(before));
+    if (after !== undefined) entry.after = after == null ? null : JSON.parse(JSON.stringify(after));
+    db.history.unshift(entry);
     db.history = db.history.slice(0, 100);
+  }
+  function isYearClosed(year = ui.year) { return Boolean(db.yearStatus?.[year]?.closed); }
+  function blockIfYearClosed(year = ui.year) { return isYearClosed(year) ? (notice(`ปีงบ ${year} ปิดแล้ว กรุณาเปิดปีงบก่อนแก้ไขข้อมูล`), true) : false; }
+  function documentStatus(item) {
+    const date = new Date(), today = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    if (item.effectiveDate && item.effectiveDate > today) return 'รอมีผล';
+    if (item.expiryDate && item.expiryDate < today) return 'หมดอายุ';
+    return 'ใช้งาน';
   }
   function fileDb() {
     if (!fileDbPromise) fileDbPromise = new Promise((resolve, reject) => {
@@ -80,6 +96,52 @@
     });
   }
   async function putFile(file) { const id = uid(); await fileAction('put', id, file); return id; }
+  function normalizeWorkspace(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
+    const restored = { ...empty(), ...data };
+    ['departments','projects','reports','documents','history'].forEach(key => { if (!Array.isArray(restored[key])) throw new Error(`ข้อมูล ${key} ไม่ถูกต้อง`); });
+    ['budgets','plans','weights','yearStatus'].forEach(key => { if (!restored[key] || typeof restored[key] !== 'object' || Array.isArray(restored[key])) restored[key] = {}; });
+    if (!Array.isArray(restored.admins) || !restored.admins.length) restored.admins = empty().admins;
+    return restored;
+  }
+  function allBlobIds(data = db) {
+    const ids = new Set();
+    (data.documents || []).forEach(doc => { if (doc.blobId) ids.add(doc.blobId); (doc.versions || []).forEach(version => { if (version.blobId) ids.add(version.blobId); }); });
+    (data.reports || []).forEach(report => (report.attachments || []).forEach(file => { if (file.blobId) ids.add(file.blobId); }));
+    return [...ids];
+  }
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] || ''); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob); });
+  }
+  async function exportWorkspaceBackup() {
+    const blobs = [];
+    for (const id of allBlobIds()) {
+      const blob = await fileAction('get', id).catch(() => null);
+      if (blob) blobs.push({ id, type: blob.type || 'application/octet-stream', data: await blobToBase64(blob) });
+    }
+    const backup = { format: 'mu-scurve-backup', version: 1, exportedAt: new Date().toISOString(), workspace: db, blobs };
+    const file = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+    const url = URL.createObjectURL(file), link = document.createElement('a');
+    link.href = url; link.download = `mahidol-sustainability-${ui.year}-backup.json`; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+    notice(`ดาวน์โหลดข้อมูลสำรองแล้ว · ${blobs.length} ไฟล์แนบ`);
+  }
+  async function restoreWorkspaceBackup(file) {
+    try {
+      const backup = JSON.parse(await file.text());
+      if (backup?.format !== 'mu-scurve-backup' || backup.version !== 1) throw new Error('ไฟล์นี้ไม่ใช่ข้อมูลสำรองของเว็บจำลอง');
+      const restored = normalizeWorkspace(backup.workspace);
+      if (!Array.isArray(backup.blobs)) throw new Error('ไม่พบข้อมูลไฟล์แนบในชุดสำรอง');
+      if (!window.confirm('กู้คืนข้อมูลชุดนี้ทับข้อมูลทดลองที่มีอยู่ในเบราว์เซอร์หรือไม่?')) return;
+      await fileAction('clear');
+      for (const item of backup.blobs) {
+        const bytes = Uint8Array.from(atob(item.data), char => char.charCodeAt(0));
+        await fileAction('put', item.id, new Blob([bytes], { type: item.type || 'application/octet-stream' }));
+      }
+      db = restored; adminPanels = {}; localStorage.removeItem(ADMIN_PANELS_KEY); persist();
+      ui = { page: 'admin', year: Number(db.lastYear) || Number(Object.keys(db.budgets).sort().at(-1)) || 2569, projectId: '', month: '', reportId: '', editDept: '', editProject: '', editDoc: '', replaceFileId: '' };
+      render(); notice(`กู้คืนข้อมูลสำเร็จ · ${backup.blobs.length} ไฟล์แนบ`);
+    } catch (error) { notice(`กู้คืนไม่สำเร็จ: ${error.message || 'ไฟล์ข้อมูลไม่สมบูรณ์'}`); }
+  }
   async function openFile(id) {
     try {
       const blob = await fileAction('get', id);
@@ -148,9 +210,53 @@
     $$('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.page === ui.page));
     const views = { home: renderHome, admin: renderAdmin, plan: renderPlan, report: renderReport, review: renderReview, dashboard: renderDashboard, archive: renderArchive, 'project-output': renderProjectOutput, 'portfolio-output': renderPortfolioOutput };
     screen.innerHTML = (views[ui.page] || renderHome)();
+    if (isYearClosed() && ui.page !== 'admin') screen.insertAdjacentHTML('afterbegin', `<div class="year-lock-banner"><strong>ปีงบ ${ui.year} ปิดแล้ว</strong><span>เปิดดูข้อมูลได้ แต่การบันทึกหรือแก้ไขจะถูกระงับ</span><button type="button" data-go="admin">ไปเปิดปีงบ</button></div>`);
+    if (isYearClosed()) screen.querySelectorAll('#budget-form,#project-form,#weights-form,#document-form,#plan-form,#report-form,#copy-year-form').forEach(form=>form.querySelectorAll('input,select,textarea,button').forEach(control=>{control.disabled=true;}));
+    if (ui.page === 'admin') enhanceAdminPanels();
     hydrateImages();
   }
   function navigate(page) { ui.page = page; ui.editDept = ''; ui.editProject = ''; ui.editDoc = ''; render(); window.scrollTo(0, 0); }
+
+  function adminPanelOpen(id) {
+    const saved = adminPanels[`${ui.year}:${id}`];
+    if (typeof saved === 'boolean') return saved;
+    if (id === 'admin-budget') return !db.budgets[ui.year];
+    if (id === 'admin-departments') return Boolean(db.budgets[ui.year]) && !db.departments.length;
+    if (id === 'admin-projects') return Boolean(db.budgets[ui.year]) && db.departments.length > 0;
+    return false;
+  }
+  function setAdminPanelOpen(id, open, persistChoice = true) {
+    if (persistChoice) {
+      adminPanels[`${ui.year}:${id}`] = open;
+      localStorage.setItem(ADMIN_PANELS_KEY, JSON.stringify(adminPanels));
+    }
+    const section = document.getElementById(id);
+    if (!section) return;
+    section.classList.toggle('is-collapsed', !open);
+    const body = section.querySelector('.admin-panel-body');
+    const button = section.querySelector('[data-admin-toggle]');
+    if (body) body.hidden = !open;
+    if (button) { button.setAttribute('aria-expanded', String(open)); button.textContent = open ? '⌃ ย่อเนื้อหา' : '⌄ ขยายเนื้อหา'; }
+  }
+  function enhanceAdminPanels() {
+    ['admin-budget', 'admin-copy', 'admin-departments', 'admin-projects', 'admin-weights', 'admin-access', 'admin-documents', 'admin-history', 'admin-year', 'admin-backup', 'admin-reset'].forEach(id => {
+      const section = document.getElementById(id);
+      const heading = section?.querySelector('.starter-section-title');
+      if (!section || !heading) return;
+      const body = document.createElement('div');
+      body.className = 'admin-panel-body';
+      body.id = `${id}-content`;
+      [...section.childNodes].filter(node => node !== heading).forEach(node => body.appendChild(node));
+      section.appendChild(body);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'admin-panel-toggle';
+      button.dataset.adminToggle = id;
+      button.setAttribute('aria-controls', body.id);
+      heading.appendChild(button);
+      setAdminPanelOpen(id, adminPanelOpen(id), false);
+    });
+  }
 
   function renderHome() {
     const projectCount = yearProjects().length;
@@ -173,16 +279,43 @@
     const budget = db.budgets[ui.year];
     const projects = yearProjects();
     const allocation = projects.reduce((sum, project) => sum + safeNum(project.budget), 0);
+    const inactiveProjects = db.projects.filter(project => project.year === ui.year && project.active === false);
+    const inactiveBudget = inactiveProjects.reduce((sum, project) => sum + safeNum(project.budget), 0);
+    const remaining = budget ? safeNum(budget.amount) - allocation : null;
+    const allocationPercent = budget?.amount > 0 ? Math.min(100, Math.max(0, allocation / budget.amount * 100)) : 0;
+    const closed = isYearClosed();
+    const missingPlan = projects.filter(project => !getPlan(project.id));
+    const missingOwner = projects.filter(project => !project.owners?.[0]?.email);
+    const centralDocs = db.documents.filter(item => item.year === ui.year && item.scope === 'central');
+    const nextAction = closed ? `ปีงบ ${ui.year} ปิดแล้ว · เปิดปีเพื่อแก้ข้อมูล` : !budget ? 'เริ่มจากตั้งงบประมาณปีนี้' : !db.departments.length ? 'เพิ่มหน่วยงานและหัวหน้าที่รับผิดชอบ' : !projects.length ? 'เพิ่มโครงการและผู้รับผิดชอบ' : remaining < 0 ? `งบโครงการเกินวงเงิน ${money(-remaining)} บาท กรุณาตรวจสอบ` : missingOwner.length ? `ตรวจผู้รับผิดชอบหลักของ ${missingOwner.length} โครงการ` : missingPlan.length ? `ยังมี ${missingPlan.length} โครงการที่ไม่มีแผน` : remaining > 0 ? `ยังมี ${money(remaining)} บาทที่รอจัดสรรหรือยืนยันว่าเป็นเงินคงเหลือ` : 'ข้อมูลหลักพร้อมแล้ว ตรวจเอกสารส่วนกลางและปิดปีเมื่อสิ้นงวด';
+    const readiness = [
+      { ok: Boolean(budget), label: 'ตั้งงบประมาณปีนี้', detail: budget ? `${money(budget.amount)} บาท` : 'ยังไม่มีวงเงินที่บันทึก', target: 'admin-budget' },
+      { ok: db.departments.length > 0, label: 'มีข้อมูลหน่วยงาน', detail: `${db.departments.length} หน่วยงาน`, target: 'admin-departments' },
+      { ok: Boolean(projects.length) && remaining >= 0, label: 'จัดสรรงบไม่เกินวงเงิน', detail: remaining == null ? 'ตั้งงบก่อนตรวจสอบ' : remaining < 0 ? `เกินงบ ${money(-remaining)} บาท` : `${money(Math.max(0, remaining))} บาทยังไม่จัดสรร`, target: 'admin-projects' },
+      { ok: projects.length > 0 && missingOwner.length === 0, label: 'ผู้รับผิดชอบหลักครบ', detail: `${projects.length - missingOwner.length}/${projects.length} โครงการ`, target: 'admin-projects' },
+      { ok: projects.length > 0 && missingPlan.length === 0, label: 'โครงการมีแผนแล้ว', detail: `${projects.length - missingPlan.length}/${projects.length} โครงการ`, target: 'admin-projects' },
+      { ok: centralDocs.length > 0, label: 'มีเอกสารอ้างอิงส่วนกลาง', detail: `${centralDocs.length} รายการ`, target: 'admin-documents' }
+    ];
+    const docSearch = String(ui.adminDocSearch || '').trim().toLocaleLowerCase();
+    const docCategory = ui.adminDocCategory || 'all';
+    const docVisibility = ui.adminDocVisibility || 'all';
+    const docStatusFilter = ui.adminDocStatus || 'all';
     const deptEdit = db.departments.find(item => item.id === ui.editDept);
     const projectEdit = db.projects.find(item => item.id === ui.editProject);
     const docEdit = db.documents.find(item => item.id === ui.editDoc);
-    const docs = db.documents.filter(item => item.year === ui.year);
+    const docs = db.documents.filter(item => item.year === ui.year && (!docSearch || `${item.title} ${item.number} ${item.fileName}`.toLocaleLowerCase().includes(docSearch)) && (docCategory === 'all' || item.category === docCategory) && (docVisibility === 'all' || (docVisibility === 'visible' ? item.visible : !item.visible)) && (docStatusFilter === 'all' || (docStatusFilter === 'expired' ? documentStatus(item) === 'หมดอายุ' : docStatusFilter === 'upcoming' ? documentStatus(item) === 'รอมีผล' : documentStatus(item) === 'ใช้งาน')));
     const currentWeights = weights();
-    return `${heading('ดูแลข้อมูลตั้งต้น', 'แอดมิน · ตั้งค่าระบบ', 'จัดงบ หน่วยงาน โครงการ ค่าน้ำหนัก และเอกสาร แล้วตรวจรายการย้อนหลังได้')}${controls(false)}
-      <div class="starter-kpis"><div><span>งบที่อนุมัติ</span><strong>${budget ? money(budget.amount) : '—'}</strong><small>บาท · ปี ${ui.year}</small></div><div><span>รวมงบโครงการ</span><strong>${money(allocation)}</strong><small>${projects.length} โครงการ</small></div><div><span>ยังไม่ได้จัดสรร</span><strong class="${budget && allocation > budget.amount ? 'alert' : ''}">${budget ? money(budget.amount - allocation) : '—'}</strong><small>บาท · ติดลบเมื่อจัดสรรเกิน</small></div><div><span>เอกสารปีนี้</span><strong>${docs.length}</strong><small>รายการที่คุณเพิ่ม</small></div></div>
+    return `${heading('สำหรับผู้ดูแลระบบ', 'ศูนย์งานแอดมิน', 'ตรวจงบ ผู้รับผิดชอบ ค่าน้ำหนัก และเอกสารที่ทุกคนต้องหยิบใช้')}${controls(false)}
+      <div class="admin-brief"><div><small>ภาพรวมปีงบประมาณ ${ui.year} · ${closed ? 'ปิดงวด' : 'กำลังดำเนินงาน'}</small><h2>เรื่องที่แอดมินต้องเห็นก่อนเริ่มงาน</h2><p>${esc(nextAction)}</p></div><span class="admin-brief-count">${projects.length} โครงการใช้งาน · ${docs.length} เอกสาร</span></div>
+      <nav class="admin-shortcuts" aria-label="ไปยังหัวข้อจัดการระบบ">${[['admin-budget','งบปี'],['admin-departments','หน่วยงาน'],['admin-projects','โครงการ'],['admin-copy','เตรียมปีใหม่'],['admin-weights','ค่าน้ำหนัก'],['admin-documents','เอกสาร'],['admin-access','สิทธิ์ผู้ดูแล'],['admin-history','ประวัติ'],['admin-year','ปิดปีงบ'],['admin-backup','สำรองข้อมูล']].map(([id,label])=>`<button type="button" data-admin-jump="${id}">${label}</button>`).join('')}</nav>
+      <section class="card admin-readiness" aria-labelledby="admin-readiness-title"><div class="starter-section-title"><div><small>ตรวจความพร้อมก่อนเปิดปี/รอบงาน</small><h2 id="admin-readiness-title">รายการที่ควรเช็ก</h2></div><span class="current-year-tag">${readiness.filter(item=>item.ok).length}/${readiness.length} พร้อม</span></div><div class="admin-checklist">${readiness.map(item=>`<button type="button" class="admin-check ${item.ok?'is-ready':'is-pending'}" data-admin-jump="${item.target}"><span class="admin-check-icon">${item.ok?'✓':'!'}</span><span><strong>${esc(item.label)}</strong><small>${esc(item.detail)}</small></span><span class="admin-check-go">ไปดู →</span></button>`).join('')}</div></section>
+      <div class="admin-overview card"><div class="starter-section-title"><div><small>01 · งบปีและความพร้อม</small><h2>เงินอนุมัติไปอยู่ตรงไหนแล้ว</h2><p>โครงการที่พักหรือยกเลิกแสดงแยกจากยอดจัดสรรที่ใช้งาน</p></div><span class="current-year-tag">ปี ${ui.year}</span></div>
+        <div class="admin-overview-grid"><div><span>งบอนุมัติทั้งปี</span><strong>${budget ? `${money(budget.amount)} บาท` : 'ยังไม่ได้ตั้ง'}</strong><small>กรอบวงเงินที่บันทึกไว้</small></div><div><span>จัดสรรให้โครงการที่ใช้งาน</span><strong>${money(allocation)} บาท</strong><small>${projects.length} โครงการที่ใช้งาน</small></div><div class="${remaining != null && remaining < 0 ? 'over-budget' : 'remaining'}"><span>${remaining != null && remaining < 0 ? 'จัดสรรเกินงบ' : 'ยังไม่ได้จัดสรร'}</span><strong>${remaining == null ? '—' : `${money(Math.abs(remaining))} บาท`}</strong><small>${remaining != null && remaining < 0 ? 'ตรวจสอบวงเงินโครงการ' : 'รอจัดสรรหรือยืนยันเงินคงเหลือ'}</small></div><div><span>โครงการพักหรือยกเลิก</span><strong>${money(inactiveBudget)} บาท</strong><small>${inactiveProjects.length} โครงการ · ไม่นับในยอดใช้งาน</small></div></div>
+        <div class="admin-budget-meter ${remaining != null && remaining < 0?'has-overrun':''}" role="progressbar" aria-label="สัดส่วนงบที่จัดสรร" aria-valuenow="${Math.round(allocationPercent)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${allocationPercent}%"></span></div><p class="admin-meter-note">${budget ? `จัดสรรแล้ว ${money(allocation)} จาก ${money(budget.amount)} บาท · ${remaining < 0 ? `เกินงบ ${money(-remaining)} บาท` : `ยังไม่จัดสรร ${money(remaining)} บาท`}` : 'ตั้งงบประมาณเพื่อเริ่มดูสัดส่วนการจัดสรร'}</p></div>
       <section class="card" id="admin-budget"><div class="starter-section-title"><div><h2>1 · งบประมาณประจำปี</h2><p>บันทึกได้หลายปี แล้วเลือกปีด้านบนเพื่อดูย้อนหลัง</p></div></div>
         <form id="budget-form"><div class="starter-form-grid two"><label>ปีงบประมาณ<input value="${ui.year}" readonly></label><label>ยอดงบอนุมัติ (บาท)<input name="amount" type="text" inputmode="decimal" data-money required value="${budget ? esc(formatMoneyInput(budget.amount)) : ''}" placeholder="เช่น 5,000,000"></label></div><div class="starter-actions"><button class="btn primary-btn">${budget ? 'บันทึกยอดงบที่แก้ไข' : 'บันทึกงบปีนี้'}</button></div></form>
         <div class="table-scroll"><table class="starter-table"><thead><tr><th>ปีงบ</th><th>งบที่ตั้ง</th><th>แก้ล่าสุด</th><th>จัดการ</th></tr></thead><tbody>${Object.entries(db.budgets).sort((a,b)=>Number(b[0])-Number(a[0])).map(([year, item]) => `<tr><td>${year}</td><td>${money(item.amount)} บาท</td><td>${esc(item.updatedAt)}</td><td class="actions">${Number(year) === ui.year ? '<span class="current-year-tag">กำลังดูปีนี้</span>' : `<button class="mini-btn" data-year-open="${year}">ดูข้อมูลปี ${year}</button>`}<button class="mini-btn danger" data-delete-budget="${year}">ลบ</button></td></tr>`).join('') || '<tr><td colspan="4">ยังไม่มีงบปีใดที่บันทึก</td></tr>'}</tbody></table></div></section>
+      <section class="card" id="admin-copy"><div class="starter-section-title"><div><h2>เตรียมปีงบใหม่จากปีก่อน</h2><p>คัดลอกเฉพาะรายการตั้งต้น แล้วตรวจทานก่อนใช้งาน</p></div></div><form id="copy-year-form"><div class="starter-form-grid three"><label>คัดลอกจากปี<select name="sourceYear">${Object.keys(db.budgets).filter(year=>Number(year)!==ui.year).sort((a,b)=>Number(b)-Number(a)).map(year=>`<option value="${year}">${year}</option>`).join('') || '<option value="">ยังไม่มีปีต้นทาง</option>'}</select></label><label>เตรียมสำหรับปี<input value="${ui.year}" readonly></label><div class="admin-copy-checks"><label><input type="checkbox" name="copyWeights" checked> ค่าน้ำหนักขั้นตอน</label><label><input type="checkbox" name="copyProjects" checked> โครงโครงการและผู้รับผิดชอบ</label></div></div><p class="admin-copy-note">โครงการจะเริ่มเป็น “พัก/ร่าง” ด้วยงบ 0 บาท เพื่อให้ตรวจชื่อ ผู้รับผิดชอบ และวงเงินปีใหม่ก่อนเปิดใช้งาน ระบบไม่คัดลอกงบ แผน รายงาน หรือเอกสารแนบจากปีก่อน</p><div class="starter-actions"><button class="btn primary-btn" ${closed?'disabled':''}>เตรียมข้อมูลปี ${ui.year}</button></div></form></section>
       <section class="card" id="admin-departments"><div class="starter-section-title"><div><h2>2 · หน่วยงานและหัวหน้า</h2><p>แก้ข้อมูลได้เมื่อหัวหน้าหรือผู้ประสานงานเปลี่ยน</p></div></div>
         <form id="department-form"><div class="starter-form-grid four"><label>ชื่อหน่วยงาน<input name="name" required value="${esc(deptEdit?.name)}" placeholder="ชื่อหน่วยงาน"></label><label>ชื่อหัวหน้า<input name="head" required value="${esc(deptEdit?.head)}"></label><label>อีเมลหัวหน้า<input name="email" type="email" required value="${esc(deptEdit?.email)}"></label><label>มีผลตั้งแต่<input name="since" type="date" value="${esc(deptEdit?.since)}"></label></div><div class="starter-actions"><button class="btn primary-btn">${deptEdit ? 'บันทึกการแก้ไข' : 'เพิ่มหน่วยงาน'}</button>${deptEdit ? '<button type="button" class="btn quiet-btn" data-cancel-edit>ยกเลิกแก้ไข</button>' : ''}</div></form>
         <div class="table-scroll"><table class="starter-table"><thead><tr><th>หน่วยงาน</th><th>หัวหน้า</th><th>อีเมล</th><th>มีผลตั้งแต่</th><th>จัดการ</th></tr></thead><tbody>${db.departments.map(item => `<tr><td>${esc(item.name)}</td><td>${esc(item.head)}</td><td>${esc(item.email)}</td><td>${item.since || '—'}</td><td class="actions"><button class="mini-btn" data-edit-dept="${item.id}">แก้ไข</button><button class="mini-btn danger" data-delete-dept="${item.id}">ลบ</button></td></tr>`).join('') || '<tr><td colspan="5">ยังไม่มีหน่วยงาน</td></tr>'}</tbody></table></div></section>
@@ -192,12 +325,16 @@
           <div class="owner-list"><div class="owner-list-heading">ผู้รับผิดชอบโครงการ</div>${[0,1,2].map(index => `<div class="owner-row"><div class="owner-role">${index === 0 ? 'หลัก <span>จำเป็น</span>' : `รอง ${index}`}</div><label>ชื่อผู้รับผิดชอบ<input name="ownerName${index}" ${index === 0 ? 'required' : ''} value="${esc(projectEdit?.owners?.[index]?.name)}" placeholder="ชื่อ–นามสกุล"></label><label>อีเมล<input name="ownerEmail${index}" type="email" ${index === 0 ? 'required' : ''} value="${esc(projectEdit?.owners?.[index]?.email)}" placeholder="name@mahidol.ac.th"></label></div>`).join('')}</div></div>
           <div class="starter-actions"><button class="btn primary-btn">${projectEdit ? 'บันทึกการแก้ไขโครงการ' : 'เพิ่มโครงการ'}</button>${projectEdit ? '<button type="button" class="btn quiet-btn" data-cancel-edit>ยกเลิกแก้ไข</button>' : ''}<span class="muted">งบโครงการรวม ${money(allocation)} ${budget ? `/ ${money(budget.amount)} บาท` : 'บาท · ยังไม่ตั้งงบปี'}</span></div></form>
         <div class="table-scroll"><table class="starter-table"><thead><tr><th>โครงการ</th><th>หน่วยงาน</th><th>งบ</th><th>ผู้รับผิดชอบหลัก</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>${db.projects.filter(project=>project.year===ui.year).map(item => `<tr><td>${esc(item.name)}</td><td>${esc(db.departments.find(dept=>dept.id===item.deptId)?.name || '—')}</td><td>${money(item.budget)} บาท</td><td>${esc(item.owners?.[0]?.name || '—')}</td><td>${item.active === false ? 'พัก/ยกเลิก' : 'ใช้งาน'}</td><td class="actions"><button class="mini-btn" data-edit-project="${item.id}">แก้ไข</button><button class="mini-btn danger" data-delete-project="${item.id}">ลบ</button></td></tr>`).join('') || '<tr><td colspan="6">ยังไม่มีโครงการในปีนี้</td></tr>'}</tbody></table></div></section>
-      <section class="card"><div class="starter-section-title"><div><h2>4 · ค่าน้ำหนักขั้นตอน</h2><p>ค่าเริ่มต้นเป็นกฎคำนวณ ไม่ใช่ผลโครงการตัวอย่าง</p></div></div><form id="weights-form"><div class="starter-form-grid four">${stepKeys.map(key => `<label>${esc(stages.find(item=>item[0]===key)?.[1] || key)}<input name="${key}" type="number" min="0" max="100" required value="${esc(currentWeights[key])}"></label>`).join('')}</div><div class="starter-actions"><button class="btn primary-btn">บันทึกน้ำหนักปี ${ui.year}</button><span class="muted">ผลรวมต้องเท่ากับ 100%</span></div></form></section>
+      <section class="card" id="admin-weights"><div class="starter-section-title"><div><h2>4 · ค่าน้ำหนักขั้นตอน</h2><p>ค่าเริ่มต้นเป็นกฎคำนวณ ไม่ใช่ผลโครงการตัวอย่าง</p></div></div><form id="weights-form"><div class="starter-form-grid four">${stepKeys.map(key => `<label>${esc(stages.find(item=>item[0]===key)?.[1] || key)}<input name="${key}" type="number" min="0" max="100" required value="${esc(currentWeights[key])}"></label>`).join('')}</div><div class="starter-actions"><button class="btn primary-btn">บันทึกน้ำหนักปี ${ui.year}</button><span class="muted">ผลรวมต้องเท่ากับ 100%</span></div></form></section>
+      <section class="card" id="admin-access"><div class="starter-section-title"><div><h2>ผู้ดูแลและสิทธิ์เข้าใช้</h2><p>บัญชีผู้ดูแลทดลอง · เฉพาะที่อยู่อีเมล @mahidol.ac.th</p></div><span class="readonly-pill">จำลองการจัดการสิทธิ์</span></div><div class="soft-note warn">รายการนี้เป็นเพียงหน้าจอจำลอง การจำกัดผู้ใช้จริงต้องตั้งค่าโดเมนใน Apps Script และตรวจสิทธิ์ทุกฟังก์ชันฝั่ง .gs</div><form id="admin-user-form"><div class="starter-form-grid two"><label>อีเมลผู้ดูแลใหม่<input name="email" type="email" required placeholder="name@mahidol.ac.th"></label><label>บทบาท<select name="role"><option>ผู้ดูแลระบบ</option><option>ผู้ดูแลเอกสาร</option></select></label></div><div class="starter-actions"><button class="btn primary-btn">เพิ่มผู้ดูแล</button></div></form><div class="table-scroll"><table class="starter-table"><thead><tr><th>อีเมล</th><th>บทบาท</th><th>เพิ่มเมื่อ</th><th>เพิ่มโดย</th><th>จัดการ</th></tr></thead><tbody>${db.admins.map(item=>`<tr><td>${esc(item.email)} ${item.isPrimary?'<span class="current-year-tag">ผู้ดูแลหลัก</span>':''}</td><td>${esc(item.role||'ผู้ดูแลระบบ')}</td><td>${esc(item.addedAt||'—')}</td><td>${esc(item.addedBy||'—')}</td><td>${item.isPrimary?'<span class="muted">บัญชีหลัก ลบไม่ได้</span>':`<button class="mini-btn danger" data-remove-admin="${esc(item.email)}">ปิดสิทธิ์</button>`}</td></tr>`).join('')}</tbody></table></div></section>
       <section class="card" id="admin-documents"><div class="starter-section-title"><div><h2>5 · ศูนย์เอกสารอ้างอิง</h2><p>อัปโหลดไฟล์จากเครื่องและกำหนดว่าจะให้เห็นบนแดชบอร์ดหรือไม่</p></div></div>
-        <form id="document-form"><div class="starter-form-grid three"><label class="wide">ชื่อเอกสาร<input name="title" required value="${esc(docEdit?.title)}" placeholder="เช่น หนังสืออนุมัติหลักการโครงการ"></label><label>ขอบเขต<select name="scope"><option value="central" ${docEdit?.scope !== 'project' ? 'selected' : ''}>ส่วนกลางทั้งปี</option><option value="project" ${docEdit?.scope === 'project' ? 'selected' : ''}>เฉพาะโครงการ</option></select></label><label>โครงการ<select name="projectId"><option value="">ไม่ระบุ / ส่วนกลาง</option>${projectOptions(docEdit?.projectId || '')}</select></label><label>ประเภท<select name="category">${['อนุมัติแผนใหญ่','จัดสรรงบ','อนุมัติโครงการ','จัดซื้อจัดจ้าง','ตรวจรับ','เงินยืม/วางฎีกา','ขยายเวลา','อื่น ๆ'].map(category => `<option ${docEdit?.category===category ? 'selected' : ''}>${category}</option>`).join('')}</select></label><label>เลขที่หนังสือ<input name="number" value="${esc(docEdit?.number)}"></label><label>ไฟล์ PDF / Word<input name="file" type="file" accept=".pdf,.doc,.docx"></label><label style="align-self:end"><input name="visible" type="checkbox" ${docEdit?.visible ? 'checked' : ''} style="width:auto;min-height:auto"> แสดงบนแดชบอร์ด</label></div><div class="starter-actions"><button class="btn primary-btn">${docEdit ? 'บันทึกการแก้ไขเอกสาร' : 'เพิ่มเอกสาร'}</button>${docEdit ? '<button type="button" class="btn quiet-btn" data-cancel-edit>ยกเลิกแก้ไข</button>' : ''}<span class="muted">ไฟล์อยู่ในเบราว์เซอร์เครื่องนี้ ไม่ขึ้น Drive</span></div></form>
-        <div class="table-scroll"><table class="starter-table"><thead><tr><th>ชื่อเอกสาร</th><th>ขอบเขต</th><th>ประเภท</th><th>ไฟล์</th><th>หน้าแดชบอร์ด</th><th>จัดการ</th></tr></thead><tbody>${docs.map(item => `<tr><td>${esc(item.title)}<small style="display:block;color:#718198">${esc(item.number)}</small></td><td>${item.scope === 'central' ? 'ส่วนกลาง' : esc(db.projects.find(project=>project.id===item.projectId)?.name || 'โครงการที่ถูกลบ')}</td><td>${esc(item.category)}</td><td>${esc(item.fileName || 'ยังไม่แนบไฟล์')}</td><td>${item.visible ? 'แสดง' : 'ซ่อน'}</td><td class="actions">${item.blobId ? `<button class="mini-btn" data-open-file="${item.blobId}">เปิดไฟล์</button>` : ''}<button class="mini-btn" data-edit-doc="${item.id}">แก้ไข</button><button class="mini-btn danger" data-delete-doc="${item.id}">ลบ</button></td></tr>`).join('') || '<tr><td colspan="6">ยังไม่มีเอกสาร</td></tr>'}</tbody></table></div></section>
-      <section class="card"><div class="starter-section-title"><div><h2>ประวัติการจัดการ</h2><p>แสดงรายการที่คุณบันทึกหรือแก้ไขในเว็บจำลอง</p></div></div><div class="file-list">${db.history.filter(item=>item.year===ui.year || !item.year).slice(0,12).map(item => `<div class="file-item"><div><strong>${esc(item.section)} · ${esc(item.action)}</strong><small>${esc(item.detail)}</small></div><small>${esc(item.at)}</small></div>`).join('') || emptyBox('ยังไม่มีประวัติ', 'เมื่อเริ่มบันทึกจะแสดงที่นี่')}</div></section>
-      <section class="card"><h2>เริ่มใหม่อีกครั้ง</h2><p class="muted">ลบข้อมูลทดลองทั้งหมดในเบราว์เซอร์นี้ รวมถึงไฟล์ที่อัปโหลดไว้ในพื้นที่ทดลอง</p><div class="starter-actions"><button class="btn quiet-btn" id="reset-sandbox">ล้างข้อมูลทดลองทั้งหมด</button></div></section>`;
+        <form id="document-form"><div class="starter-form-grid three"><label class="wide">ชื่อเอกสาร<input name="title" required value="${esc(docEdit?.title)}" placeholder="เช่น หนังสืออนุมัติหลักการโครงการ"></label><label>ขอบเขต<select name="scope"><option value="central" ${docEdit?.scope !== 'project' ? 'selected' : ''}>ส่วนกลางทั้งปี</option><option value="project" ${docEdit?.scope === 'project' ? 'selected' : ''}>เฉพาะโครงการ</option></select></label><label>โครงการ<select name="projectId"><option value="">ไม่ระบุ / ส่วนกลาง</option>${projectOptions(docEdit?.projectId || '')}</select></label><label>ประเภท<select name="category">${['อนุมัติแผนใหญ่','จัดสรรงบ','อนุมัติโครงการ','จัดซื้อจัดจ้าง','ตรวจรับ','เงินยืม/วางฎีกา','ขยายเวลา','อื่น ๆ'].map(category => `<option ${docEdit?.category===category ? 'selected' : ''}>${category}</option>`).join('')}</select></label><label>เลขที่หนังสือ<input name="number" value="${esc(docEdit?.number)}"></label><label>มีผลตั้งแต่<input name="effectiveDate" type="date" value="${esc(docEdit?.effectiveDate)}"></label><label>หมดอายุ / ทบทวนวันที่<input name="expiryDate" type="date" value="${esc(docEdit?.expiryDate)}"></label><label>ไฟล์ PDF / Word<input name="file" type="file" accept=".pdf,.doc,.docx"></label><label style="align-self:end"><input name="visible" type="checkbox" ${docEdit?.visible ? 'checked' : ''} style="width:auto;min-height:auto"> แสดงบนแดชบอร์ด</label></div><div class="starter-actions"><button class="btn primary-btn">${docEdit ? 'บันทึกการแก้ไขเอกสาร' : 'เพิ่มเอกสาร'}</button>${docEdit ? '<button type="button" class="btn quiet-btn" data-cancel-edit>ยกเลิกแก้ไข</button>' : ''}<span class="muted">ระบบเก็บข้อมูลฉบับก่อนเมื่อแก้ไข · ไฟล์อยู่ในเบราว์เซอร์เครื่องนี้</span></div></form>
+        <form id="admin-document-filter" class="admin-document-filter"><label>ค้นหาชื่อ / เลขที่ / ไฟล์<input name="search" value="${esc(ui.adminDocSearch)}" placeholder="พิมพ์คำที่ต้องการค้น"></label><label>ประเภท<select name="category"><option value="all">ทุกประเภท</option>${['อนุมัติแผนใหญ่','จัดสรรงบ','อนุมัติโครงการ','จัดซื้อจัดจ้าง','ตรวจรับ','เงินยืม/วางฎีกา','ขยายเวลา','อื่น ๆ'].map(category=>`<option ${docCategory===category?'selected':''}>${category}</option>`).join('')}</select></label><label>กำหนดเวลา<select name="status"><option value="all" ${docStatusFilter==='all'?'selected':''}>ทุกสถานะ</option><option value="current" ${docStatusFilter==='current'?'selected':''}>ใช้งาน</option><option value="upcoming" ${docStatusFilter==='upcoming'?'selected':''}>รอมีผล</option><option value="expired" ${docStatusFilter==='expired'?'selected':''}>หมดอายุ</option></select></label><label>การแสดงผล<select name="visibility"><option value="all" ${docVisibility==='all'?'selected':''}>ทั้งหมด</option><option value="visible" ${docVisibility==='visible'?'selected':''}>แสดงบนแดชบอร์ด</option><option value="hidden" ${docVisibility==='hidden'?'selected':''}>ซ่อน</option></select></label><button class="mini-btn">ค้นหาเอกสารในปี ${ui.year}</button></form>
+        <div class="table-scroll"><table class="starter-table"><thead><tr><th>เอกสาร / รุ่น</th><th>ขอบเขต</th><th>ประเภท</th><th>กำหนดเวลา</th><th>แดชบอร์ด</th><th>จัดการ</th></tr></thead><tbody>${docs.map(item => `<tr><td><strong>${esc(item.title)}</strong><small style="display:block;color:#718198">${esc(item.number)} · รุ่น ${item.version||1} · แก้ไข ${esc(item.updatedAt||'—')}</small>${item.versions?.length?`<details class="doc-version-history"><summary>ประวัติ ${item.versions.length} รุ่นก่อนหน้า</summary>${item.versions.map(version=>`<div class="doc-version-row"><span>รุ่น ${version.version||1} · ${esc(version.updatedAt||'—')} · ${esc(version.fileName||'ไม่มีไฟล์')}</span>${version.blobId?`<button class="mini-btn" type="button" data-open-file="${esc(version.blobId)}">เปิดรุ่นเก่า</button>`:''}</div>`).join('')}</details>`:''}</td><td>${item.scope === 'central' ? 'ส่วนกลาง' : esc(db.projects.find(project=>project.id===item.projectId)?.name || 'โครงการที่ถูกลบ')}</td><td>${esc(item.category)}</td><td><span class="doc-status ${documentStatus(item)==='หมดอายุ'?'expired':documentStatus(item)==='รอมีผล'?'upcoming':'current'}">${documentStatus(item)}</span><small style="display:block;color:#718198">${item.effectiveDate?`เริ่ม ${esc(item.effectiveDate)}`:'ไม่กำหนดวันเริ่ม'}${item.expiryDate?` · ทบทวน ${esc(item.expiryDate)}`:''}</small></td><td>${item.visible ? 'แสดง' : 'ซ่อน'}</td><td class="actions">${item.blobId ? `<button class="mini-btn" data-open-file="${esc(item.blobId)}">เปิดไฟล์</button>` : ''}<button class="mini-btn" data-edit-doc="${item.id}" ${closed?'disabled':''}>แก้ไข</button><button class="mini-btn danger" data-delete-doc="${item.id}" ${closed?'disabled':''}>ลบ</button></td></tr>`).join('') || '<tr><td colspan="6">ไม่พบเอกสารที่ตรงกับตัวกรอง</td></tr>'}</tbody></table></div></section>
+      <section class="card" id="admin-history"><div class="starter-section-title"><div><h2>ประวัติการจัดการ</h2><p>รายการใหม่อยู่ด้านบน · ดูย้อนหลังได้โดยเลื่อนภายในกรอบ</p></div></div><p class="admin-history-note">${db.history.length} รายการล่าสุด · เว็บจำลองเก็บสูงสุด 100 รายการ · รายการที่มีค่าเปลี่ยนแปลงกดดูรายละเอียดได้</p><div class="file-list admin-history-list" role="region" aria-label="รายการประวัติการจัดการ" tabindex="0">${db.history.map(item => `<div class="file-item"><div><strong>${esc(item.section)} · ${esc(item.action)}</strong><small>${esc(item.detail)}</small>${item.before!==undefined||item.after!==undefined?`<details class="audit-change"><summary>ดูค่าก่อนและหลัง</summary><div class="audit-change-grid"><div><strong>ก่อน</strong><pre>${esc(item.before==null?'ไม่มีข้อมูล':JSON.stringify(item.before,null,2))}</pre></div><div><strong>หลัง</strong><pre>${esc(item.after==null?'ไม่มีข้อมูล':JSON.stringify(item.after,null,2))}</pre></div></div></details>`:''}</div><small>${esc(item.at)}</small></div>`).join('') || emptyBox('ยังไม่มีประวัติ', 'เมื่อเริ่มบันทึกจะแสดงที่นี่')}</div></section>
+      <section class="card" id="admin-year"><div class="starter-section-title"><div><h2>ปิดงวดและเปิดปีงบ</h2><p>เมื่อปิดปี ระบบทดลองจะป้องกันการบันทึกแก้ไขของปีนั้นจนกว่าจะเปิดกลับ</p></div><span class="${closed?'year-closed-tag':'current-year-tag'}">${closed?'ปิดปีแล้ว':'ปีเปิดให้แก้ไข'}</span></div>${closed?`<p class="admin-lock-reason">ปิดเมื่อ ${esc(db.yearStatus[ui.year].updatedAt||'—')} · เหตุผล: ${esc(db.yearStatus[ui.year].reason||'—')}</p>`:''}<form id="year-status-form"><label>เหตุผลในการ${closed?'เปิด':'ปิด'}ปี<input name="reason" required placeholder="เช่น สรุปผลและตรวจสอบเอกสารครบแล้ว"></label><div class="starter-actions"><button class="btn ${closed?'primary-btn':'danger-btn'}">${closed?'เปิดปีงบเพื่อแก้ไข':'ปิดปีงบและล็อกการแก้ไข'}</button></div></form></section>
+      <section class="card" id="admin-backup"><div class="starter-section-title"><div><h2>สำรองและกู้คืนข้อมูล</h2><p>ส่งออกข้อมูลทดลองพร้อมไฟล์แนบ หรือกู้คืนจากไฟล์สำรอง</p></div></div><p class="admin-copy-note">ไฟล์สำรองมีข้อมูลโครงการ เอกสาร ประวัติ และไฟล์แนบ โปรดเก็บในที่ปลอดภัย · ข้อมูลยังอยู่ในเบราว์เซอร์เครื่องนี้</p><div class="starter-actions"><button class="btn primary-btn" type="button" data-backup-export>ดาวน์โหลดข้อมูลสำรอง</button><button class="btn quiet-btn" type="button" data-backup-choose>เลือกไฟล์เพื่อกู้คืน</button><input id="admin-restore-file" type="file" accept=".json,application/json" hidden></div></section>
+      <section class="card" id="admin-reset"><div class="starter-section-title"><div><h2>เริ่มใหม่อีกครั้ง</h2><p>ลบข้อมูลทดลองทั้งหมดในเบราว์เซอร์นี้ รวมถึงไฟล์ที่อัปโหลดไว้ในพื้นที่ทดลอง</p></div></div><p class="admin-reset-note">ระบบจะถามยืนยัน และให้พิมพ์คำว่า “ล้างข้อมูล” ก่อนลบจริง</p><div class="starter-actions"><button class="btn quiet-btn" id="reset-sandbox">ล้างข้อมูลทดลองทั้งหมด</button></div></section>`;
   }
 
   function renderPlan() {
@@ -378,6 +515,20 @@
     if (go) return navigate(go.dataset.go);
     const node = event.target.closest('button');
     if (!node || !screen.contains(node)) return;
+    if (node.dataset.adminToggle) return setAdminPanelOpen(node.dataset.adminToggle, !adminPanelOpen(node.dataset.adminToggle));
+    if (node.dataset.adminJump) {
+      const id = node.dataset.adminJump;
+      setAdminPanelOpen(id, true);
+      return document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (node.hasAttribute('data-backup-export')) return exportWorkspaceBackup().catch(error=>notice(`สำรองข้อมูลไม่สำเร็จ: ${error.message}`));
+    if (node.hasAttribute('data-backup-choose')) return $('#admin-restore-file')?.click();
+    if (node.dataset.removeAdmin) {
+      const item=db.admins.find(admin=>admin.email===node.dataset.removeAdmin);
+      if(!item||item.isPrimary)return notice('บัญชีผู้ดูแลหลักไม่สามารถปิดสิทธิ์ได้');
+      if(!window.confirm(`ปิดสิทธิ์ผู้ดูแล ${item.email} ในเว็บจำลองหรือไม่?`))return;
+      const before={...item};db.admins=db.admins.filter(admin=>admin.email!==item.email);log('สิทธิ์ผู้ดูแล','ปิดสิทธิ์',item.email,before,null);persist();return render();
+    }
     if (node.id === 'apply-year') {
       const year = Number($('#context-year')?.value);
       if (!Number.isInteger(year) || year < 2560 || year > 2600) return notice('กรุณาเลือกปีงบประมาณ 2560–2600');
@@ -386,11 +537,12 @@
     }
     if (node.hasAttribute('data-cancel-edit')) { ui.editDept='';ui.editProject='';ui.editDoc='';return render(); }
     if (node.dataset.yearOpen) { ui.year=Number(node.dataset.yearOpen);ui.projectId='';ui.month='';db.lastYear=ui.year;db.lastMonth='';persist();render();window.scrollTo({top:0,behavior:'smooth'});return notice(`กำลังดูข้อมูลปีงบ ${ui.year}`); }
-    if (node.dataset.editDept) { ui.editDept=node.dataset.editDept;render();return $('#admin-departments')?.scrollIntoView(); }
-    if (node.dataset.editProject) { ui.editProject=node.dataset.editProject;render();return $('#admin-projects')?.scrollIntoView(); }
-    if (node.dataset.editDoc) { ui.editDoc=node.dataset.editDoc;render();return $('#admin-documents')?.scrollIntoView(); }
+    if (node.dataset.editDept) { ui.editDept=node.dataset.editDept;setAdminPanelOpen('admin-departments',true);render();return $('#admin-departments')?.scrollIntoView(); }
+    if (node.dataset.editProject) { ui.editProject=node.dataset.editProject;setAdminPanelOpen('admin-projects',true);render();return $('#admin-projects')?.scrollIntoView(); }
+    if (node.dataset.editDoc) { ui.editDoc=node.dataset.editDoc;setAdminPanelOpen('admin-documents',true);render();return $('#admin-documents')?.scrollIntoView(); }
     if (node.dataset.openFile) return openFile(node.dataset.openFile);
     if (node.dataset.planAdd) {
+      if(blockIfYearClosed())return;
       const draft=collectPlan();
       const added=shiftMonth(node.dataset.planAdd==='before'?draft.months[0].key:draft.months.at(-1).key,node.dataset.planAdd==='before'?-1:1);
       if (!draft.months.some(row=>row.key===added)) draft.months[node.dataset.planAdd==='before'?'unshift':'push']({key:added});
@@ -404,20 +556,23 @@
     }
     if (node.dataset.dashboardProject) {ui.projectId=node.dataset.dashboardProject;ui.page='review';return render();}
     if (node.dataset.togglePhoto) {
+      if(blockIfYearClosed(db.projects.find(project=>project.id===ui.projectId)?.year||ui.year))return;
       const report=selectedOutputReport();const file=report?.attachments?.find(item=>item.id===node.dataset.togglePhoto);
       if (!file) return;
       if (!file.featured && report.attachments.filter(item=>item.isImage&&item.featured).length>=3) return notice('เลือกภาพเด่นได้สูงสุด 3 ภาพ กรุณานำภาพเดิมออกก่อน');
       file.featured=!file.featured;persist();return render();
     }
-    if (node.dataset.replaceAttachment) {ui.replaceFileId=node.dataset.replaceAttachment;return $('#attachment-replacement')?.click();}
+    if (node.dataset.replaceAttachment) {if(blockIfYearClosed(db.projects.find(project=>project.id===ui.projectId)?.year||ui.year))return;ui.replaceFileId=node.dataset.replaceAttachment;return $('#attachment-replacement')?.click();}
     if (node.dataset.removeAttachment) {
+      if(blockIfYearClosed(db.projects.find(project=>project.id===ui.projectId)?.year||ui.year))return;
       const report=getReport(ui.projectId,ui.month);const index=report?.attachments?.findIndex(file=>file.id===node.dataset.removeAttachment);
       if (index<0 || !window.confirm('ลบไฟล์นี้จากรายงานในเว็บจำลองหรือไม่?')) return;
       const [file]=report.attachments.splice(index,1);await fileAction('delete',file.blobId).catch(()=>{});report.version++;report.updatedAt=now();log('ไฟล์รายงาน','ลบ',file.name);persist();return render();
     }
     if (node.dataset.deleteBudget) {
+      if(blockIfYearClosed(Number(node.dataset.deleteBudget)))return;
       if (!window.confirm(`ลบงบประมาณปี ${node.dataset.deleteBudget} ในเว็บจำลองหรือไม่?`)) return;
-      delete db.budgets[node.dataset.deleteBudget];log('งบประมาณ','ลบ',`ปี ${node.dataset.deleteBudget}`);persist();return render();
+      const before={year:node.dataset.deleteBudget,...db.budgets[node.dataset.deleteBudget]};delete db.budgets[node.dataset.deleteBudget];log('งบประมาณ','ลบ',`ปี ${node.dataset.deleteBudget}`,before,null);persist();return render();
     }
     if (node.dataset.deleteDept) {
       const item=db.departments.find(dept=>dept.id===node.dataset.deleteDept);
@@ -427,22 +582,26 @@
     }
     if (node.dataset.deleteProject) {
       const item=db.projects.find(project=>project.id===node.dataset.deleteProject);
+      if(item&&blockIfYearClosed(item.year))return;
       if (!item || !window.confirm(`ลบโครงการ ${item.name} พร้อมแผนและรายงานในเว็บจำลองหรือไม่?`)) return;
-      db.projects=db.projects.filter(project=>project.id!==item.id);delete db.plans[item.id];db.reports=db.reports.filter(report=>report.projectId!==item.id);db.documents=db.documents.filter(doc=>doc.projectId!==item.id);log('โครงการ','ลบ',item.name);ui.projectId='';persist();return render();
+      const before={...item};db.projects=db.projects.filter(project=>project.id!==item.id);delete db.plans[item.id];db.reports=db.reports.filter(report=>report.projectId!==item.id);db.documents=db.documents.filter(doc=>doc.projectId!==item.id);log('โครงการ','ลบ',item.name,before,null);ui.projectId='';persist();return render();
     }
     if (node.dataset.deleteDoc) {
       const item=db.documents.find(doc=>doc.id===node.dataset.deleteDoc);
+      if(item&&blockIfYearClosed(item.year))return;
       if (!item || !window.confirm(`ลบเอกสาร ${item.title} ในเว็บจำลองหรือไม่?`)) return;
-      db.documents=db.documents.filter(doc=>doc.id!==item.id);if(item.blobId)await fileAction('delete',item.blobId).catch(()=>{});log('เอกสาร','ลบ',item.title);persist();return render();
+      const before={...item};db.documents=db.documents.filter(doc=>doc.id!==item.id);if(item.blobId)await fileAction('delete',item.blobId).catch(()=>{});log('เอกสาร','ลบ',item.title,before,null);persist();return render();
     }
     if (node.dataset.deleteReport) {
       const item=db.reports.find(report=>report.id===node.dataset.deleteReport);
+      if(item&&blockIfYearClosed(db.projects.find(project=>project.id===item.projectId)?.year||ui.year))return;
       if (!item || !window.confirm(`ลบรายงาน ${monthLabel(item.month)} ในเว็บจำลองหรือไม่?`)) return;
-      db.reports=db.reports.filter(report=>report.id!==item.id);for(const file of item.attachments||[])await fileAction('delete',file.blobId).catch(()=>{});log('รายงาน','ลบ',monthLabel(item.month));persist();return render();
+      const before={...item};db.reports=db.reports.filter(report=>report.id!==item.id);for(const file of item.attachments||[])await fileAction('delete',file.blobId).catch(()=>{});log('รายงาน','ลบ',monthLabel(item.month),before,null);persist();return render();
     }
     if (node.id==='reset-sandbox') {
       if (!window.confirm('ล้างข้อมูลทดลองทั้งหมด รวมไฟล์ที่อัปโหลดในเบราว์เซอร์นี้หรือไม่?')) return;
-      db=empty();localStorage.removeItem(KEY);await fileAction('clear').catch(()=>{});ui={page:'home',year:2569,projectId:'',month:'',reportId:'',editDept:'',editProject:'',editDoc:'',replaceFileId:''};render();return notice('ล้างข้อมูลทดลองทั้งหมดแล้ว');
+      if (window.prompt('เพื่อยืนยันการลบถาวร กรุณาพิมพ์คำว่า ล้างข้อมูล')?.trim() !== 'ล้างข้อมูล') return notice('ยกเลิกการล้างข้อมูลแล้ว');
+      db=empty();adminPanels={};localStorage.removeItem(KEY);localStorage.removeItem(ADMIN_PANELS_KEY);await fileAction('clear').catch(()=>{});ui={page:'home',year:2569,projectId:'',month:'',reportId:'',editDept:'',editProject:'',editDoc:'',replaceFileId:''};render();return notice('ล้างข้อมูลทดลองทั้งหมดแล้ว');
     }
     if (node.hasAttribute('data-print')) {document.body.classList.add('print-report');window.print();}
   });
@@ -450,11 +609,13 @@
 
   document.addEventListener('change', async event => {
     const input=event.target;
+    if (input.id==='admin-restore-file'&&input.files[0]) { const file=input.files[0];await restoreWorkspaceBackup(file);input.value='';return; }
     if (input.id==='context-year') {const year=Number(input.value);if(year<2560||year>2600)return notice('กรุณาเลือกปีงบประมาณ 2560–2600');ui.year=year;ui.projectId='';ui.month='';db.lastYear=year;db.lastMonth='';persist();return render();}
     if (input.id==='context-project') {ui.projectId=input.value;ui.month='';ui.planDraft=null;return render();}
     if (input.id==='context-month') {ui.month=input.value;db.lastMonth=ui.month;persist();return render();}
-    if (input.dataset.photoCaption) {const report=selectedOutputReport();const file=report?.attachments?.find(item=>item.id===input.dataset.photoCaption);if(file){file.caption=input.value.trim().slice(0,100);persist();render();}return;}
+    if (input.dataset.photoCaption) {if(blockIfYearClosed(db.projects.find(project=>project.id===ui.projectId)?.year||ui.year))return;const report=selectedOutputReport();const file=report?.attachments?.find(item=>item.id===input.dataset.photoCaption);if(file){file.caption=input.value.trim().slice(0,100);persist();render();}return;}
     if (input.id==='attachment-replacement'&&input.files[0]) {
+      if(blockIfYearClosed(db.projects.find(project=>project.id===ui.projectId)?.year||ui.year)){input.value='';return;}
       const report=getReport(ui.projectId,ui.month);const file=report?.attachments?.find(item=>item.id===ui.replaceFileId);if(!file)return;
       try{const replacement=input.files[0];const newId=await putFile(replacement);await fileAction('delete',file.blobId).catch(()=>{});Object.assign(file,{name:replacement.name,blobId:newId,isImage:replacement.type.startsWith('image/'),caption:replacement.name,uploadedAt:now()});report.version++;report.updatedAt=now();log('ไฟล์รายงาน','แทนที่',replacement.name);persist();render();notice('แทนที่ไฟล์ในเว็บจำลองแล้ว');}catch{notice('เก็บไฟล์ในเบราว์เซอร์นี้ไม่ได้');}finally{ui.replaceFileId='';}
     }
@@ -484,20 +645,55 @@
     if (!screen.contains(form)) return;
     event.preventDefault();
     const fields=new FormData(form);
+    if (['budget-form','project-form','weights-form','document-form','plan-form','report-form','copy-year-form'].includes(form.id) && blockIfYearClosed()) return;
+    if (form.id==='admin-document-filter') {
+      ui.adminDocSearch=String(fields.get('search')||'');ui.adminDocCategory=String(fields.get('category')||'all');ui.adminDocStatus=String(fields.get('status')||'all');ui.adminDocVisibility=String(fields.get('visibility')||'all');return render();
+    }
+    if (form.id==='admin-user-form') {
+      const email=String(fields.get('email')||'').trim().toLowerCase();
+      if(!/^[^\s@]+@mahidol\.ac\.th$/i.test(email))return notice('เพิ่มได้เฉพาะอีเมล @mahidol.ac.th');
+      if(db.admins.some(item=>item.email.toLowerCase()===email))return notice('อีเมลนี้มีสิทธิ์ผู้ดูแลอยู่แล้ว');
+      const record={email,role:String(fields.get('role')||'ผู้ดูแลระบบ'),addedAt:now(),addedBy:INITIAL_ADMIN_EMAIL,isPrimary:false};db.admins.push(record);log('สิทธิ์ผู้ดูแล','เพิ่ม',email,null,record);persist();return render();
+    }
+    if (form.id==='year-status-form') {
+      const reason=String(fields.get('reason')||'').trim();
+      if(!reason)return notice('กรุณาระบุเหตุผลก่อนเปลี่ยนสถานะปีงบ');
+      const wasClosed=isYearClosed(),action=wasClosed?'เปิดปีงบ':'ปิดปีงบ';
+      if(!window.confirm(`${action} ${ui.year} ใช่หรือไม่? ${wasClosed?'หลังเปิดแล้วสามารถแก้ไขข้อมูลปีนี้ได้':'ระบบจะระงับการแก้ไขข้อมูลปีนี้จนกว่าจะเปิดปีอีกครั้ง'}`))return;
+      const before=db.yearStatus[ui.year]?{...db.yearStatus[ui.year]}:null;
+      db.yearStatus[ui.year]={closed:!wasClosed,reason,updatedAt:now(),updatedBy:INITIAL_ADMIN_EMAIL};
+      log('ปีงบประมาณ',action,`ปี ${ui.year} · ${reason}`,before,db.yearStatus[ui.year]);persist();return render();
+    }
+    if (form.id==='copy-year-form') {
+      const sourceYear=String(fields.get('sourceYear')||'');
+      if(!sourceYear||Number(sourceYear)===ui.year)return notice('เลือกปีต้นทางที่ต่างจากปีเป้าหมาย');
+      const copied={weights:false,projects:0,skipped:0},before={weights:db.weights[ui.year]||null,projects:db.projects.filter(item=>item.year===ui.year).length};
+      if(fields.get('copyWeights')&&db.weights[sourceYear]){db.weights[ui.year]={...db.weights[sourceYear]};copied.weights=true;}
+      if(fields.get('copyProjects')){
+        const source=db.projects.filter(item=>Number(item.year)===Number(sourceYear));
+        source.forEach(item=>{
+          if(db.projects.some(existing=>existing.year===ui.year&&existing.name.trim().toLocaleLowerCase()===item.name.trim().toLocaleLowerCase())){copied.skipped++;return;}
+          db.projects.push({id:uid(),year:ui.year,name:item.name,deptId:item.deptId,budget:0,owners:JSON.parse(JSON.stringify(item.owners||[])),active:false});copied.projects++;
+        });
+      }
+      if(!copied.weights&&!copied.projects)return notice('ไม่พบข้อมูลที่เลือกให้คัดลอก หรือรายการมีอยู่แล้ว');
+      const after={weights:db.weights[ui.year]||null,projects:db.projects.filter(item=>item.year===ui.year).length};
+      log('เตรียมปีงบใหม่','คัดลอกข้อมูลตั้งต้น',`จากปี ${sourceYear} ไปปี ${ui.year} · ${copied.projects} โครงการร่าง · ${copied.weights?'ค่าน้ำหนัก':''} · ข้ามชื่อซ้ำ ${copied.skipped}`,before,after);persist();setAdminPanelOpen('admin-projects',true);return render();
+    }
     if (form.id==='budget-form') {
       const amount=parseAmount(fields.get('amount'));
       if (!Number.isFinite(amount)||amount<0) return notice('กรุณากรอกงบประมาณตั้งแต่ศูนย์ขึ้นไป');
-      db.budgets[ui.year]={amount,updatedAt:now()};log('งบประมาณ','บันทึก',`ปี ${ui.year} · ${money(amount)} บาท`);persist();render();return notice('บันทึกงบประมาณปีนี้แล้ว');
+      const before=db.budgets[ui.year]?{...db.budgets[ui.year]}:null;db.budgets[ui.year]={amount,updatedAt:now()};log('งบประมาณ',before?'แก้ไข':'บันทึก',`ปี ${ui.year} · ${money(amount)} บาท`,before,db.budgets[ui.year]);persist();setAdminPanelOpen('admin-budget',true);render();return notice('บันทึกงบประมาณปีนี้แล้ว');
     }
     if (form.id==='department-form') {
       const name=String(fields.get('name')||'').trim(),head=String(fields.get('head')||'').trim(),email=String(fields.get('email')||'').trim();
       if (!name||!head||!email)return notice('กรอกชื่อหน่วยงาน หัวหน้า และอีเมลให้ครบ');
       const duplicate=db.departments.find(item=>item.name.toLocaleLowerCase()===name.toLocaleLowerCase()&&item.id!==ui.editDept);
       if(duplicate)return notice('มีชื่อหน่วยงานนี้แล้ว');
-      const item=db.departments.find(item=>item.id===ui.editDept);
+      const item=db.departments.find(item=>item.id===ui.editDept),before=item?{...item}:null;
       if(item)Object.assign(item,{name,head,email,since:String(fields.get('since')||'')});
       else db.departments.push({id:uid(),name,head,email,since:String(fields.get('since')||'')});
-      log('หน่วยงาน',item?'แก้ไข':'เพิ่ม',`${name} · ${head}`);ui.editDept='';persist();render();return notice('บันทึกหน่วยงานแล้ว');
+      const after=item?{...item}:db.departments.at(-1);log('หน่วยงาน',item?'แก้ไข':'เพิ่ม',`${name} · ${head}`,before,after);ui.editDept='';persist();setAdminPanelOpen('admin-departments',true);render();return notice('บันทึกหน่วยงานแล้ว');
     }
     if (form.id==='project-form') {
       const name=String(fields.get('name')||'').trim(),deptId=String(fields.get('deptId')||''),budget=parseAmount(fields.get('budget'));
@@ -505,17 +701,17 @@
       if(!db.budgets[ui.year])return notice('กรุณาตั้งงบปีนี้ก่อน');
       if(!name||!deptId||!owners[0].name||!owners[0].email||!Number.isFinite(budget)||budget<0)return notice('กรอกชื่อ หน่วยงาน งบ และผู้รับผิดชอบหลักให้ครบ');
       if(owners.slice(1).some(owner=>Boolean(owner.name)!==Boolean(owner.email)))return notice('ผู้รับผิดชอบรองต้องกรอกทั้งชื่อและอีเมล');
-      const item=db.projects.find(project=>project.id===ui.editProject);
+      const item=db.projects.find(project=>project.id===ui.editProject),before=item?{...item,owners:JSON.parse(JSON.stringify(item.owners||[]))}:null;
       const nextTotal=yearProjects().reduce((sum,project)=>sum+(project.id===item?.id?0:safeNum(project.budget)),0)+(fields.get('active')==='true'?budget:0);
       if(nextTotal>db.budgets[ui.year].amount)return notice(`วงเงินรวมเกินงบปี ${money(nextTotal-db.budgets[ui.year].amount)} บาท กรุณาตรวจงบก่อน`);
       const record={year:ui.year,name,deptId,budget,owners,active:fields.get('active')==='true'};
       if(item)Object.assign(item,record);else db.projects.push({id:uid(),...record});
-      log('โครงการ',item?'แก้ไข':'เพิ่ม',`${name} · ${money(budget)} บาท`);ui.editProject='';persist();render();return notice('บันทึกโครงการแล้ว');
+      log('โครงการ',item?'แก้ไข':'เพิ่ม',`${name} · ${money(budget)} บาท`,before,record);ui.editProject='';persist();setAdminPanelOpen('admin-projects',true);render();return notice('บันทึกโครงการแล้ว');
     }
     if(form.id==='weights-form') {
       const values=Object.fromEntries(stepKeys.map(key=>[key,Number(fields.get(key))]));
       if(Object.values(values).some(value=>!Number.isFinite(value)||value<0)||Object.values(values).reduce((sum,value)=>sum+value,0)!==100)return notice('ผลรวมค่าน้ำหนักต้องเท่ากับ 100%');
-      db.weights[ui.year]=values;log('ค่าน้ำหนัก','บันทึก',`ปี ${ui.year} · ${Object.values(values).join('/')}`);persist();render();return notice('บันทึกค่าน้ำหนักแล้ว');
+      const before=db.weights[ui.year]?{...db.weights[ui.year]}:null;db.weights[ui.year]=values;log('ค่าน้ำหนัก',before?'แก้ไข':'บันทึก',`ปี ${ui.year} · ${Object.values(values).join('/')}`,before,values);persist();setAdminPanelOpen('admin-weights',true);render();return notice('บันทึกค่าน้ำหนักแล้ว');
     }
     if(form.id==='document-form') {
       const title=String(fields.get('title')||'').trim(),scope=String(fields.get('scope')||'central'),projectId=scope==='project'?String(fields.get('projectId')||''):'';
@@ -524,10 +720,13 @@
       if(scope==='project'&&!projectId)return notice('เอกสารเฉพาะโครงการต้องเลือกโครงการ');
       if(!item&&!file)return notice('กรุณาเลือกไฟล์ PDF หรือ Word');
       let blobId=item?.blobId||'',fileName=item?.fileName||'';
-      if(file){try{blobId=await putFile(file);fileName=file.name;if(item?.blobId)await fileAction('delete',item.blobId).catch(()=>{});}catch{return notice('เก็บไฟล์เอกสารในเบราว์เซอร์นี้ไม่ได้');}}
-      const record={year:ui.year,title,scope,projectId,category:String(fields.get('category')||''),number:String(fields.get('number')||'').trim(),visible:fields.get('visible')==='on',blobId,fileName,updatedAt:now()};
+      if(file){try{blobId=await putFile(file);fileName=file.name;}catch{return notice('เก็บไฟล์เอกสารในเบราว์เซอร์นี้ไม่ได้');}}
+      const before=item?JSON.parse(JSON.stringify(item)):null;
+      const versions=[...(item?.versions||[])];
+      if(item){const previous={...item};delete previous.versions;versions.unshift(previous);}
+      const record={year:ui.year,title,scope,projectId,category:String(fields.get('category')||''),number:String(fields.get('number')||'').trim(),effectiveDate:String(fields.get('effectiveDate')||''),expiryDate:String(fields.get('expiryDate')||''),visible:fields.get('visible')==='on',blobId,fileName,version:(item?.version||0)+1,versions,updatedAt:now()};
       if(item)Object.assign(item,record);else db.documents.push({id:uid(),...record});
-      log('เอกสาร',item?'แก้ไข':'เพิ่ม',title);ui.editDoc='';persist();render();return notice('บันทึกเอกสารในเว็บจำลองแล้ว');
+      const after=item?JSON.parse(JSON.stringify(item)):db.documents.at(-1);log('เอกสาร',item?'แก้ไข/ออกฉบับใหม่':'เพิ่ม',title,before,after);ui.editDoc='';persist();setAdminPanelOpen('admin-documents',true);render();return notice('บันทึกเอกสารและเก็บรุ่นก่อนหน้าแล้ว');
     }
     if(form.id==='plan-form') {
       const plan=collectPlan(),error=validatePlan(plan);

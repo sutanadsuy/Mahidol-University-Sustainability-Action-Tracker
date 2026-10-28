@@ -307,7 +307,7 @@
   $$('.prev-step').forEach(button => button.addEventListener('click', () => setStep(button.dataset.prev)));
 
   $$('#view-plan input, #view-plan select').forEach(input => input.addEventListener('input', () => { markDirty('plan'); updatePlan(); }));
-  $('#save-plan').addEventListener('click', () => { state.planDirty = false; setStatus('plan', 'บันทึกตัวอย่างแล้ว', 'saved'); toast('บันทึกแผนในหน้าต้นแบบแล้ว · ไม่มีข้อมูลส่งไปยังระบบจริง'); });
+  $('#save-plan').addEventListener('click', () => { state.planDirty = false; setStatus('plan', 'บันทึกตัวอย่างแล้ว', 'saved'); window.dispatchEvent(new CustomEvent('mockup:plan-saved')); toast('บันทึกแผนในหน้าต้นแบบแล้ว · ไม่มีข้อมูลส่งไปยังระบบจริง'); });
 
   $$('#view-report input, #view-report select, #view-report textarea').forEach(input => {
     if (input.type === 'file' || input.id === 'report-period') return;

@@ -27,6 +27,51 @@
   ];
   let featured = photos.slice(0, maxFeatured).map(photo => photo.id);
   let submittedAt = '';
+  let submittedExpenseEntries = [];
+
+  function planExpenseRows() {
+    return [...document.querySelectorAll('#view-plan .expense-plan-row')].map((row, index) => ({
+      name: row.querySelector('input')?.value.trim() || `รายการที่ ${index + 1}`,
+      type: row.querySelector('select')?.value || 'ค่าใช้จ่ายอื่น',
+      budget: Math.max(0, Number(row.querySelector('.budget-input')?.value) || 0)
+    })).filter(item => item.name);
+  }
+
+  function renderPlannedExpenses() {
+    const host = $('#planned-expense-report-list');
+    if (!host) return;
+    const previous = new Map([...host.querySelectorAll('.expense-entry')].map(card => [card.dataset.key, {
+      paid: card.querySelector('.paid-input')?.value || '0',
+      status: card.querySelector('.procurement-status')?.value || '',
+      checked: Boolean(card.querySelector('.inspect-check, .voucher-check')?.checked),
+      evidence: card.querySelector('.evidence-file')?.files?.[0]?.name || card.querySelector('.evidence-name')?.dataset.filename || ''
+    }]));
+    const rows = planExpenseRows();
+    if (!rows.length) {
+      host.innerHTML = '<div class="report-no-photo">ยังไม่มีรายการงบในแผน · เพิ่มรายการในหน้าวางแผนโครงการก่อน</div>';
+      return;
+    }
+    host.innerHTML = rows.map((item, index) => {
+      const type = item.type.includes('จัดซื้อ') || item.type.includes('จ้าง') ? 'procurement' : item.type.includes('เงินยืม') ? 'loan' : 'other';
+      const key = `${type}|${item.name}`;
+      const prior = previous.get(key) || {};
+      const defaultPaid = type === 'procurement' && index === 0 ? 850000 : type === 'loan' && index === 1 ? 30000 : 0;
+      const status = prior.status || (type === 'procurement' ? 'อยู่ระหว่างจัดซื้อ/จ้าง' : type === 'loan' ? 'อยู่ระหว่างดำเนินการ' : 'ดำเนินการแล้ว');
+      const statusControl = type === 'procurement'
+        ? `<label>สถานะการจัดซื้อ/จ้าง<select class="procurement-status"><option ${status === 'ยังไม่ดำเนินการ' ? 'selected' : ''}>ยังไม่ดำเนินการ</option><option ${status === 'อยู่ระหว่างจัดซื้อ/จ้าง' ? 'selected' : ''}>อยู่ระหว่างจัดซื้อ/จ้าง</option><option ${status === 'จัดซื้อ/จ้างแล้ว' ? 'selected' : ''}>จัดซื้อ/จ้างแล้ว</option></select></label><label class="check-line"><input type="checkbox" class="inspect-check" ${prior.checked ? 'checked' : ''}> ตรวจรับแล้ว <small>ได้รับใบตรวจรับจากพัสดุ</small></label>`
+        : type === 'loan'
+          ? `<label>สถานะเงินยืม<select class="procurement-status"><option ${status === 'ยังไม่ดำเนินการ' ? 'selected' : ''}>ยังไม่ดำเนินการ</option><option ${status === 'อยู่ระหว่างดำเนินการ' ? 'selected' : ''}>อยู่ระหว่างดำเนินการ</option><option ${status === 'ดำเนินการแล้ว' ? 'selected' : ''}>ดำเนินการแล้ว</option></select></label><label class="check-line"><input type="checkbox" class="voucher-check" ${prior.checked ? 'checked' : ''}> วางฎีกาใช้หนี้แล้ว <small>ส่งหลักฐานให้กองคลังแล้ว</small></label>`
+          : `<label>สถานะรายการ<select class="procurement-status"><option ${status === 'ยังไม่ดำเนินการ' ? 'selected' : ''}>ยังไม่ดำเนินการ</option><option ${status === 'อยู่ระหว่างดำเนินการ' ? 'selected' : ''}>อยู่ระหว่างดำเนินการ</option><option ${status === 'ดำเนินการแล้ว' ? 'selected' : ''}>ดำเนินการแล้ว</option></select></label><span class="check-text">รายการจากแผนโครงการ</span>`;
+      const evidenceLabel = type === 'procurement' ? 'แนบใบตรวจรับหรือหลักฐาน' : type === 'loan' ? 'แนบหลักฐานการวางฎีกา' : 'แนบหลักฐานการจ่าย';
+      return `<div class="expense-entry" data-type="${type}" data-key="${escapeHtml(key)}" data-name="${escapeHtml(item.name)}" data-budget="${item.budget}"><div class="entry-title"><div><span class="entry-code">รายการ ${String(index + 1).padStart(2, '0')} · ${escapeHtml(item.type)}</span><h3>${escapeHtml(item.name)}</h3></div><span>วงเงินตามแผน ${format(item.budget)} บาท</span></div><div class="entry-controls"><label>จ่ายเดือนนี้ (บาท)<input type="number" min="0" value="${prior.paid ?? defaultPaid}" class="paid-input"></label>${statusControl}<label class="file-button">${evidenceLabel}<input type="file" accept=".pdf,image/*" class="evidence-file"></label></div><div class="evidence-name" ${prior.evidence ? `data-filename="${escapeHtml(prior.evidence)}"` : ''}>${prior.evidence ? `ไฟล์ที่เลือก: ${escapeHtml(prior.evidence)}` : 'ยังไม่ได้เลือกหลักฐาน'}</div></div>`;
+    }).join('');
+  }
+
+  function renderReportExpenses() {
+    const section = $('#paper-expenses');
+    if (!section) return;
+    section.innerHTML = `<div class="paper-section-title"><div><h3>รายการจัดซื้อจัดจ้างและค่าใช้จ่าย</h3><p>รายการตามแผน พร้อมสถานะที่รายงานในเดือนนี้</p></div></div>${submittedExpenseEntries.length ? `<div class="paper-expense-list">${submittedExpenseEntries.map(item => `<div><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.type)} · ${escapeHtml(item.status)}${item.complete ? ' · เอกสารยืนยันแล้ว' : ''}${item.evidence ? ` · ${escapeHtml(item.evidence)}` : ''}</span><b>จ่าย ${format(item.paid)} / ${format(item.budget)} บาท</b></div>`).join('')}</div>` : '<p>ยังไม่มีรายการ</p>'}`;
+  }
 
   const resultActions = $('#view-report-result .result-actions');
   const portfolioButton = document.createElement('button');
@@ -50,6 +95,11 @@
   chart.className = 'paper-trend';
   chart.innerHTML = '<div class="paper-section-title"><div><h3>แผนตั้งต้น ผลจริง และแนวโน้ม</h3><p>แผนเดิมยังคงแสดง แม้คาดว่าจะต้องขยายเวลา</p></div><span>ถึง ก.ย. 2569</span></div><div id="project-report-chart"></div><figcaption><i class="legend-plan"></i> แผนตั้งต้น <i class="legend-actual"></i> ผลจริง <i class="legend-forecast"></i> คาดการณ์</figcaption>';
   $('#report-paper .paper-kpis').after(chart);
+
+  const expenseReport = document.createElement('section');
+  expenseReport.id = 'paper-expenses';
+  expenseReport.className = 'paper-expenses';
+  $('#report-paper .paper-columns').after(expenseReport);
 
   const gallery = document.createElement('section');
   gallery.className = 'paper-gallery';
@@ -75,20 +125,22 @@
   dashboardButton.textContent = 'ดูหน้าสรุปสำหรับประชุม →';
   $('#view-executive .page-head').append(dashboardButton);
 
-  function chartSvg(baseline, actual, forecast, title) {
+  function chartSvg(baseline, actual, forecast, title, markerIndex = actual.reduce((last, value, index) => value === null || value === undefined ? last : index, 0), markerLabel = 'รอบล่าสุด') {
     const months = ['มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค. 70'];
     const x = index => 41 + index * 67;
     const y = value => 174 - Number(value) * 1.43;
     const line = (values, stroke, dash, width) => `<polyline points="${values.map((value, index) => value === null || value === undefined ? '' : `${x(index)},${y(value).toFixed(1)}`).filter(Boolean).join(' ')}" fill="none" stroke="${stroke}" stroke-width="${width}" ${dash ? `stroke-dasharray="${dash}"` : ''} stroke-linecap="round" stroke-linejoin="round"/>`;
     const grid = [0, 25, 50, 75, 100].map(value => `<line x1="41" y1="${y(value)}" x2="511" y2="${y(value)}" stroke="#e6edf5"/><text x="30" y="${y(value) + 4}" text-anchor="end" font-size="10" fill="#71839b">${value}</text>`).join('');
     const labels = months.map((name, index) => `<text x="${x(index)}" y="202" text-anchor="middle" font-size="10" fill="#71839b">${name}</text>`).join('');
-    const last = actual.length - 1;
-    return `<svg viewBox="0 0 530 215" role="img" aria-label="${escapeHtml(title)}" xmlns="http://www.w3.org/2000/svg">${grid}${labels}${line(baseline, '#2c74da', '8 6', 3)}${line(actual, '#15956e', '', 4)}${line(forecast, '#e3a539', '7 5', 3)}<line x1="${x(last)}" y1="20" x2="${x(last)}" y2="174" stroke="#9eb0c4" stroke-dasharray="3 4"/><circle cx="${x(last)}" cy="${y(actual[last])}" r="5" fill="#15956e" stroke="#fff" stroke-width="2"/></svg>`;
+    const point = Math.max(0, Math.min(actual.length - 1, markerIndex));
+    const labelWidth = Math.max(48, markerLabel.length * 7 + 16);
+    const labelX = Math.max(42, Math.min(511 - labelWidth, x(point) - labelWidth / 2));
+    return `<svg viewBox="0 0 530 215" role="img" aria-label="${escapeHtml(title)} · จุดสีเขียวคือเดือนรายงาน ${escapeHtml(markerLabel)}" xmlns="http://www.w3.org/2000/svg">${grid}${labels}${line(baseline, '#2c74da', '8 6', 3)}${line(actual, '#15956e', '', 4)}${line(forecast, '#e3a539', '7 5', 3)}<line x1="${x(point)}" y1="20" x2="${x(point)}" y2="174" stroke="#15956e" stroke-width="1.5" stroke-dasharray="3 4"/><circle cx="${x(point)}" cy="${y(actual[point])}" r="7" fill="#15956e" stroke="#fff" stroke-width="3"/><rect x="${labelX}" y="5" width="${labelWidth}" height="22" rx="8" fill="#e7f6ef" stroke="#a9dfc6"/><text x="${labelX + labelWidth / 2}" y="20" text-anchor="middle" font-size="10" font-weight="700" fill="#14704f">เดือนรายงาน ${escapeHtml(markerLabel)}</text></svg>`;
   }
 
   function forecastFrom(actual, endIndex) {
     const result = Array(8).fill(null);
-    const lastIndex = actual.length - 1;
+    const lastIndex = actual.reduce((last, value, index) => value === null || value === undefined ? last : index, 0);
     const start = actual[lastIndex];
     const finish = Math.max(lastIndex + 1, endIndex);
     for (let index = lastIndex; index < 8; index++) result[index] = index >= finish ? 100 : start + (100 - start) * (index - lastIndex) / (finish - lastIndex);
@@ -97,13 +149,15 @@
 
   function renderProjectChart() {
     const project = app.getExecutiveData().projects[0];
-    const period = $('#result-period').textContent;
-    const visibleCount = period.includes('กรกฎาคม') ? 2 : period.includes('สิงหาคม') ? 3 : 4;
-    const actual = project.actualSeries.slice(0, visibleCount);
-    if (period.includes('กันยายน')) actual[3] = app.computeProgress();
+    const period = $('#report-period').value || $('#result-period').textContent;
+    const monthIndex = period.includes('กรกฎาคม') ? 1 : period.includes('สิงหาคม') ? 2 : period.includes('ตุลาคม') ? 4 : 3;
+    const actual = Array(8).fill(null);
+    project.actualSeries.forEach((value, index) => { if (index <= monthIndex) actual[index] = value; });
+    if (monthIndex >= 1 && monthIndex <= 4) actual[monthIndex] = app.computeProgress();
     const endIndex = 4 + $('#forecast-end').selectedIndex;
-    $('#project-report-chart').innerHTML = chartSvg([...project.baseline, 100], actual, forecastFrom(actual, endIndex), 'กราฟความก้าวหน้ารายโครงการ แผนตั้งต้น ผลจริง และคาดการณ์');
-    $('.paper-trend .paper-section-title span').textContent = period.includes('ตุลาคม') ? 'ข้อมูลกราฟล่าสุดถึง ก.ย. 2569' : `ถึง ${visibleCount === 2 ? 'ก.ค.' : visibleCount === 3 ? 'ส.ค.' : 'ก.ย.'} 2569`;
+    const label = ['มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.'][monthIndex];
+    $('#project-report-chart').innerHTML = chartSvg([...project.baseline, 100], actual, forecastFrom(actual, endIndex), 'กราฟความก้าวหน้ารายโครงการ แผนตั้งต้น ผลจริง และคาดการณ์', monthIndex, `${label} 2569`);
+    $('.paper-trend .paper-section-title span').textContent = `จุดสีเขียว = รายงานเดือน ${label} 2569`;
   }
 
   function renderPhotoChoices() {
@@ -211,12 +265,148 @@
     addFiles(event.target.files);
     event.target.value = '';
   });
-  window.addEventListener('mockup:report-before-save', event => addFiles(event.detail.files || []));
+  window.addEventListener('mockup:plan-saved', renderPlannedExpenses);
+  window.addEventListener('mockup:report-before-save', event => {
+    addFiles(event.detail.files || []);
+    submittedExpenseEntries = [...document.querySelectorAll('#planned-expense-report-list .expense-entry')].map(card => ({
+      name: card.dataset.name,
+      type: card.querySelector('.entry-code')?.textContent.replace(/^รายการ\s*\d+\s*·\s*/, '') || '',
+      budget: Number(card.dataset.budget) || 0,
+      paid: Math.max(0, Number(card.querySelector('.paid-input')?.value) || 0),
+      status: card.querySelector('.procurement-status')?.value || (card.querySelector('.inspect-check')?.checked ? 'ตรวจรับแล้ว' : card.querySelector('.voucher-check')?.checked ? 'วางฎีกาแล้ว' : 'ยังไม่ระบุสถานะ'),
+      complete: Boolean(card.querySelector('.inspect-check, .voucher-check')?.checked),
+      evidence: card.querySelector('.evidence-file')?.files?.[0]?.name || card.querySelector('.evidence-name')?.dataset.filename || ''
+    }));
+    renderReportExpenses();
+    $('#result-period').textContent = $('#report-period').value;
+    $('#result-summary').textContent = $('#summary').value.trim() || '—';
+    $('#result-issue').textContent = $('#delay').value.trim() || 'ไม่มีประเด็นล่าช้าที่ระบุ';
+    $('#result-progress').textContent = `${app.computeProgress()}%`;
+    $('#result-paid').textContent = $('#paid-total').textContent;
+    $('#result-total-paid').textContent = $('#review-total-paid').textContent;
+    $('#result-saved').textContent = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+    $('#result-status').textContent = $('#progress-status').textContent;
+    const selectedFiles = [...new Set([
+      ...[...document.querySelectorAll('#active-files li span')].map(node => node.childNodes[0]?.textContent?.trim()).filter(Boolean),
+      ...(event.detail.files || []).map(file => file.name)
+    ])];
+    $('#result-files').textContent = selectedFiles.length ? selectedFiles.join(' · ') : 'ไม่มีไฟล์แนบ';
+    renderProjectChart();
+  });
   window.addEventListener('mockup:report-saved', event => {
     submittedAt = event.detail.savedAt;
     renderProjectChart();
     renderArchive();
   });
+  $('#planned-expense-report-list').addEventListener('input', event => {
+    if (!event.target.matches('.paid-input')) return;
+    app.markDirty('report'); app.updateReport();
+  });
+  $('#planned-expense-report-list').addEventListener('change', event => {
+    const card = event.target.closest('.expense-entry');
+    if (!card) return;
+    if (event.target.matches('.evidence-file')) {
+      const filename = event.target.files[0]?.name;
+      if (filename) {
+        const label = card.querySelector('.evidence-name');
+        label.textContent = `ไฟล์ที่รอบันทึก: ${filename}`;
+        label.dataset.filename = filename;
+      }
+    }
+    app.markDirty('report');
+    app.updateReport();
+  });
+  $('#report-period').addEventListener('change', renderProjectChart);
+  $('#forecast-end').addEventListener('change', renderProjectChart);
+  renderPlannedExpenses();
+  app.updateReport();
+  renderProjectChart();
+  renderReportExpenses();
+  async function downloadReportPng() {
+    const width = 1600;
+    const pad = 88;
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    const textLines = (text, maxWidth, font) => {
+      context.font = font;
+      const lines = [];
+      for (const paragraph of String(text || '—').split('\n')) {
+        let line = '';
+        for (const character of Array.from(paragraph)) {
+          if (line && context.measureText(line + character).width > maxWidth) { lines.push(line); line = character; }
+          else line += character;
+        }
+        lines.push(line || ' ');
+      }
+      return lines;
+    };
+    const loadImage = src => new Promise(resolve => {
+      const image = new Image(); image.onload = () => resolve(image); image.onerror = () => resolve(null); image.src = src;
+    });
+    const svg = $('#project-report-chart svg');
+    const chartImage = svg ? await loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.outerHTML)}`) : null;
+    const selected = featured.map(id => photos.find(photo => photo.id === id)).filter(Boolean);
+    const photoImages = await Promise.all(selected.map(photo => loadImage(photo.src)));
+    canvas.width = width;
+    canvas.height = 1650 + selected.length * 300 + submittedExpenseEntries.length * 80;
+    context.fillStyle = '#f2f6fb'; context.fillRect(0, 0, width, canvas.height);
+    context.fillStyle = '#fff'; context.beginPath(); context.roundRect(32, 32, width - 64, canvas.height - 64, 24); context.fill();
+    let y = 115;
+    const drawText = (text, font, color, maxWidth = width - pad * 2, lineHeight = 34) => {
+      context.font = font; context.fillStyle = color;
+      const lines = textLines(text, maxWidth, font);
+      for (const line of lines) { context.fillText(line, pad, y); y += lineHeight; }
+      return lines.length;
+    };
+    drawText('MAHIDOL UNIVERSITY · SUSTAINABILITY ACTION TRACKER', '700 22px Leelawadee UI, Tahoma, sans-serif', '#2469ae', width - pad * 2, 42); y += 5;
+    drawText('สรุปผลการดำเนินงานประจำเดือน', '700 44px Leelawadee UI, Tahoma, sans-serif', '#163d70', width - pad * 2, 58);
+    drawText(`โครงการจัดการขยะครบวงจร · ปีงบประมาณ 2569 · ${$('#result-period').textContent}`, '24px Leelawadee UI, Tahoma, sans-serif', '#536983', width - pad * 2, 38); y += 18;
+    context.strokeStyle = '#2d75cc'; context.lineWidth = 4; context.beginPath(); context.moveTo(pad, y); context.lineTo(width - pad, y); context.stroke(); y += 32;
+    const kpis = [
+      ['แผนสะสม', document.querySelector('#report-paper .paper-kpis div:nth-child(1) strong')?.textContent || '75%'],
+      ['ผลสะสม', $('#result-progress').textContent], ['จ่ายเดือนนี้', $('#result-paid').textContent], ['จ่ายสะสม', $('#result-total-paid').textContent]
+    ];
+    const gap = 18; const cardWidth = (width - pad * 2 - gap * 3) / 4;
+    kpis.forEach(([label, value], index) => {
+      const x = pad + index * (cardWidth + gap);
+      context.fillStyle = '#f0f6fc'; context.beginPath(); context.roundRect(x, y, cardWidth, 112, 14); context.fill();
+      context.fillStyle = '#71839a'; context.font = '20px Leelawadee UI, Tahoma, sans-serif'; context.fillText(label, x + 18, y + 38);
+      context.fillStyle = '#1d5c9c'; context.font = '700 27px Leelawadee UI, Tahoma, sans-serif'; context.fillText(value || '—', x + 18, y + 82);
+    }); y += 145;
+    drawText('ความก้าวหน้าเทียบแผน', '700 28px Leelawadee UI, Tahoma, sans-serif', '#163d70', width - pad * 2, 38);
+    if (chartImage) { context.drawImage(chartImage, pad, y, width - pad * 2, 480); y += 500; }
+    drawText('สรุปผลเดือนนี้', '700 24px Leelawadee UI, Tahoma, sans-serif', '#2d75cc', width - pad * 2, 38);
+    drawText($('#result-summary').textContent, '21px Leelawadee UI, Tahoma, sans-serif', '#334b66', width - pad * 2, 32); y += 10;
+    drawText('ผลลัพธ์ SDG', '700 24px Leelawadee UI, Tahoma, sans-serif', '#2d75cc', width - pad * 2, 38);
+    drawText($('#result-sdg').textContent, '21px Leelawadee UI, Tahoma, sans-serif', '#334b66', width - pad * 2, 32); y += 10;
+    drawText('เรื่องที่ต้องติดตาม', '700 24px Leelawadee UI, Tahoma, sans-serif', '#2d75cc', width - pad * 2, 38);
+    drawText($('#result-issue').textContent, '21px Leelawadee UI, Tahoma, sans-serif', '#334b66', width - pad * 2, 32); y += 12;
+    if (submittedExpenseEntries.length) {
+      drawText('รายการจัดซื้อจัดจ้างและค่าใช้จ่าย', '700 24px Leelawadee UI, Tahoma, sans-serif', '#2d75cc', width - pad * 2, 40);
+      submittedExpenseEntries.forEach(item => {
+        context.fillStyle = '#f6f9fc'; context.fillRect(pad, y - 22, width - pad * 2, 66);
+        drawText(`${item.name} · ${item.type} · ${item.status} · จ่าย ${format(item.paid)} / ${format(item.budget)} บาท`, '19px Leelawadee UI, Tahoma, sans-serif', '#334b66', width - pad * 2 - 28, 28); y += 10;
+      });
+    }
+    if (selected.length) {
+      drawText('ภาพกิจกรรมที่เลือกแสดง', '700 24px Leelawadee UI, Tahoma, sans-serif', '#2d75cc', width - pad * 2, 38);
+      const photoGap = 18; const photoWidth = (width - pad * 2 - photoGap * (selected.length - 1)) / selected.length;
+      selected.forEach((photo, index) => {
+        const x = pad + index * (photoWidth + photoGap);
+        if (photoImages[index]) context.drawImage(photoImages[index], x, y, photoWidth, 210);
+        const lines = textLines(photo.caption, photoWidth - 10, '18px Leelawadee UI, Tahoma, sans-serif').slice(0, 2);
+        context.fillStyle = '#334b66'; context.font = '18px Leelawadee UI, Tahoma, sans-serif';
+        lines.forEach((line, lineIndex) => context.fillText(line, x + 5, y + 238 + lineIndex * 25));
+      }); y += 290;
+    }
+    context.fillStyle = '#8292a5'; context.font = '16px Leelawadee UI, Tahoma, sans-serif';
+    context.fillText('ข้อมูลตัวอย่างเพื่อทดลองรูปแบบ · ไม่มีข้อมูลส่งไปยังระบบจริง', pad, Math.min(canvas.height - 45, y + 24));
+    const link = document.createElement('a');
+    link.download = `รายงานผล-${$('#result-period').textContent.replaceAll(' ', '-')}.png`;
+    link.href = canvas.toDataURL('image/png'); link.click();
+    app.toast('บันทึกภาพรายงาน PNG พร้อมกราฟแล้ว');
+  }
+  $('#download-report-png').addEventListener('click', () => downloadReportPng().catch(() => app.toast('สร้างภาพไม่สำเร็จ กรุณาลองอีกครั้ง')));
   $('#print-result').addEventListener('click', () => document.body.classList.remove('print-portfolio'), { capture: true });
   $('#portfolio-print').addEventListener('click', () => {
     document.body.classList.add('print-portfolio');

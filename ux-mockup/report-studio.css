@@ -31,6 +31,13 @@
 .paper-trend .legend-plan{border-color:#2c74da;border-top-style:dashed}
 .paper-trend .legend-actual{border-color:#15956e}
 .paper-trend .legend-forecast{border-color:#e3a539;border-top-style:dashed}
+.paper-trend figcaption b{color:#14704f}
+.paper-expenses{margin:18px 0 20px;break-inside:avoid}
+.paper-expense-list{display:grid;gap:7px;margin-top:9px}
+.paper-expense-list>div{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.3fr) auto;align-items:center;gap:10px;border:1px solid #dce7f3;border-radius:8px;padding:9px 11px;background:#fbfdff;font-size:10px}
+.paper-expense-list strong{color:#244b76}.paper-expense-list span{color:#687d94}.paper-expense-list b{color:#1b5d9d;white-space:nowrap}
+.expense-entry .entry-controls label>select{display:block;width:100%;margin-top:7px;border:1px solid #d1dce9;border-radius:9px;background:#fff;color:#183653;padding:9px 10px;font-size:12px}
+.expense-entry .entry-controls .file-button{align-self:center}
 .paper-gallery{margin-top:19px;break-inside:avoid}
 .report-selected-photos{display:grid;grid-template-columns:1.55fr 1fr 1fr;gap:10px;margin-top:11px}
 .report-selected-photo{margin:0;min-width:0;border:1px solid #dce7f3;border-radius:9px;overflow:hidden;background:#f4f8fc}
@@ -72,6 +79,7 @@
 .archive-demo-row strong{color:#123b79}.archive-demo-row span{font-size:12px;color:#5f7189;margin-top:3px}.archive-demo-row small{font-size:11px;color:#8190a2;margin-top:4px}
 @media(max-width:1050px){.report-photo-options{grid-template-columns:repeat(2,minmax(0,1fr))}.studio-dashboard-action{white-space:normal}}
 @media(max-width:700px){.studio-head,.portfolio-lede{flex-direction:column;align-items:flex-start}.report-selected-photos{grid-template-columns:1fr 1fr}.report-selected-photo.lead{grid-column:1/-1}.portfolio-bottom{grid-template-columns:1fr}.studio-dashboard-action{margin-left:0}.archive-demo-row{align-items:flex-start;flex-direction:column}}
+@media(max-width:700px){.paper-expense-list>div{grid-template-columns:1fr}.paper-expense-list b{white-space:normal}.expense-entry .entry-controls{grid-template-columns:1fr 1fr}}
 @media(max-width:450px){.report-photo-options{grid-template-columns:1fr}.report-selected-photos{grid-template-columns:1fr}.report-selected-photo.lead{grid-column:auto}}
 @media print{
   .report-photo-editor,.studio-dashboard-action{display:none!important}

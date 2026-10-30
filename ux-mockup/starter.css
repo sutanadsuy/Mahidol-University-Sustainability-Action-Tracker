@@ -176,6 +176,7 @@
 .dashboard-report-table .table-scroll{overflow-x:visible}.dashboard-report-table table{min-width:0;table-layout:fixed}.dashboard-report-table th,.dashboard-report-table td{overflow-wrap:anywhere;vertical-align:top}.dashboard-report-table th:first-child,.dashboard-report-table td:first-child{width:28%}.dashboard-report-table th:nth-child(2),.dashboard-report-table td:nth-child(2){width:14%}.dashboard-report-table th:nth-child(3),.dashboard-report-table td:nth-child(3),.dashboard-report-table th:nth-child(4),.dashboard-report-table td:nth-child(4){width:11%}.dashboard-report-table th:nth-child(5),.dashboard-report-table td:nth-child(5){width:14%}.dashboard-report-table th:nth-child(6),.dashboard-report-table td:nth-child(6){width:11%}.dashboard-report-table th:nth-child(7),.dashboard-report-table td:nth-child(7){width:11%}.dashboard-report-table .dashboard-project-link{white-space:normal}
 /* Project-level dashboard and monthly report preview */
 .dashboard-project-detail{display:grid;gap:16px}.dashboard-project-detail-intro{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 22px;background:#fff;border:1px solid var(--line,#d7e3f2);border-radius:16px}.dashboard-project-detail-intro h2{margin:3px 0 5px;font-size:1.35rem}.dashboard-project-detail-intro p{margin:0;color:var(--muted,#61758f)}.project-detail-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.project-detail-kpis article{padding:15px 17px;border:1px solid #d7e3f2;border-radius:14px;background:#fff;display:grid;gap:5px}.project-detail-kpis article:nth-child(1){border-top:3px solid #2878db;background:#f8fbff}.project-detail-kpis article:nth-child(2){border-top:3px solid #6287b6;background:#f8fbff}.project-detail-kpis article:nth-child(3),.project-detail-kpis article:nth-child(4){border-top:3px solid #14966f;background:#f7fcf9}.project-detail-kpis span,.project-detail-kpis small{font-size:.82rem;color:var(--muted,#61758f)}.project-detail-kpis strong{font-size:1.2rem;color:#14559b}.dashboard-project-detail-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:16px;align-items:stretch}.dashboard-project-detail-grid>.card{margin:0;min-width:0}.project-detail-progress .starter-chart{height:250px}.project-detail-schedule .dashboard-schedule-grid{margin-top:12px}.project-detail-expense-list{display:grid;gap:8px}.project-detail-expense{display:grid;grid-template-columns:minmax(160px,1.4fr) minmax(180px,1fr) minmax(150px,.9fr);gap:12px;align-items:center;border:1px solid #dce6f2;border-radius:12px;padding:11px 13px;background:#fff}.project-detail-expense>div:first-child{display:grid;gap:4px}.project-detail-expense small,.project-detail-expense-state small{color:var(--muted,#61758f);font-size:.78rem}.project-detail-expense-numbers{display:grid;gap:4px;font-size:.82rem}.project-detail-expense-numbers span{display:flex;justify-content:space-between;gap:8px}.project-detail-expense-state{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap;font-size:.82rem}.project-detail-budget-total{display:grid;grid-template-columns:1fr auto;gap:7px 12px;align-items:center;margin-top:12px;padding:12px 14px;border-radius:12px;background:#f2f7fd;color:#465f7e}.project-detail-budget-total strong{color:#14559b}.project-detail-plan h3{margin:14px 0 5px;font-size:.95rem}.project-detail-plan p{margin:4px 0 8px;line-height:1.55}.project-detail-sdg-list{display:flex;gap:6px;flex-wrap:wrap}.project-detail-sdg{padding:5px 9px;border-radius:20px;background:color-mix(in srgb,var(--sdg-color) 12%,white);border:1px solid color-mix(in srgb,var(--sdg-color) 35%,white);color:var(--sdg-color);font-weight:700;font-size:.8rem}.project-detail-rationale{font-size:.84rem;color:#4e6682}.project-detail-history .file-list{max-height:320px;overflow:auto}.project-monthly-report-sheet{max-width:none;margin:0 auto}.project-report-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0}.project-report-kpis>div{background:#f1f6fc;border:1px solid #dce7f4;border-radius:10px;padding:12px}.project-report-kpis span,.project-report-kpis strong{display:block}.project-report-kpis span{font-size:.8rem;color:#60758f}.project-report-kpis strong{font-size:1.1rem;color:#1e65ac;margin-top:5px}.project-report-chart{margin:12px 0 18px}.project-report-chart .starter-chart{height:210px}.project-report-two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}.project-monthly-report-sheet h3{margin:14px 0 6px;color:#184b83;font-size:1rem}.project-monthly-report-sheet p{line-height:1.55}.project-report-expenses{display:grid;gap:6px}.project-report-expenses .project-detail-expense{grid-template-columns:1.4fr 1fr .9fr;padding:7px 9px}.project-report-photos>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.project-report-photos figure{margin:0}.project-report-photos img{width:100%;height:150px;object-fit:cover;border-radius:8px}.project-report-photos figcaption{font-size:.8rem;color:#60758f;margin-top:4px}.project-monthly-report-sheet footer{margin-top:18px;padding-top:9px;border-top:1px solid #dce7f4;color:#60758f;font-size:.78rem}
+.project-report-kpis>div.variance-negative{background:#fff7f7;border-color:#f1b7b7}.project-report-kpis>div.variance-negative strong{color:#d64545}.project-report-kpis>div.variance-positive{background:#f3fbf7;border-color:#b9e3cf}.project-report-kpis>div.variance-positive strong{color:#159a6c}.project-report-kpis>div.variance-neutral strong{color:#1e65ac}.project-report-kpis small{display:block;margin-top:5px;color:#60758f;font-size:.76rem;line-height:1.35}
 @media(max-width:900px){.project-detail-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-project-detail-grid{grid-template-columns:1fr}.project-detail-expense{grid-template-columns:1fr 1fr}.project-detail-expense-state{grid-column:1/-1}}
 @media(max-width:560px){.dashboard-project-detail-intro{align-items:flex-start;flex-direction:column}.project-detail-kpis{gap:8px}.project-detail-kpis article{padding:11px}.project-detail-expense{grid-template-columns:1fr}.project-detail-expense-state{grid-column:auto}.project-report-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.project-report-two-col{grid-template-columns:1fr}}
 @media print{@page{size:A4 landscape;margin:10mm}body.print-project-monthly-report #screen>:not(.dashboard-project-detail){display:none!important}body.print-project-monthly-report .dashboard-project-detail>:not(.dashboard-project-report-print-target){display:none!important}body.print-project-monthly-report .dashboard-project-report-print-target{display:block!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;background:#fff!important}body.print-project-monthly-report .dashboard-project-report-print-target>.starter-section-title{display:none!important}body.print-project-monthly-report .project-monthly-report-sheet{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important}body.print-project-monthly-report .project-monthly-report-sheet .starter-chart{height:180px!important}body.print-project-monthly-report .project-report-photos img{height:100px!important}body.print-project-monthly-report .project-detail-expense{break-inside:avoid}}
@@ -259,11 +260,13 @@
 .report-result-metric{display:grid;gap:4px;padding:10px 12px;border:1px solid #e3eaf2;border-radius:7px;background:#fff}.report-result-metric span{color:#6b7d91;font-size:10px}.report-result-metric strong{color:#175b91;font-size:14px}.report-result-metric small{color:#708197;font-size:10px}
 @media(max-width:700px){.report-sdg-list{grid-template-columns:1fr}}
 
-/* Compact project report layout for a portrait A4 export. */
+/* Compact report styles; the final report layout below targets landscape A4. */
 .project-monthly-report-sheet{page:project-monthly;padding:16px 20px}
 .project-monthly-report-sheet>header{margin-bottom:8px;padding-bottom:8px}
-.project-monthly-report-sheet>header h2{margin:3px 0 4px;font-size:1.2rem}
+.project-monthly-report-sheet>header h2{margin:2px 0 3px;font-size:1.02rem;font-weight:600;line-height:1.25}
 .project-monthly-report-sheet>header p{margin:0;font-size:.78rem;line-height:1.35}
+.project-monthly-report-sheet>header .project-report-project-meta{font-size:.98rem;font-weight:700;line-height:1.35;color:#174d86}
+.page-head h1.report-review-page-title{font-size:2.15rem;line-height:1.2;font-weight:700;letter-spacing:-.01em;margin-bottom:.35rem}
 .project-monthly-report-sheet .project-report-kpis{gap:7px;margin:9px 0}
 .project-monthly-report-sheet .project-report-kpis>div{padding:8px 10px}
 .project-monthly-report-sheet .project-report-kpis strong{margin-top:3px;font-size:.98rem}
@@ -296,7 +299,7 @@
 .project-monthly-report-sheet .project-report-photos>div{gap:6px}
 .project-monthly-report-sheet .project-report-photos img{height:110px}
 .project-monthly-report-sheet>footer{margin-top:9px;padding-top:6px;font-size:.68rem}
-@page project-monthly{size:A4 portrait;margin:8mm}
+@page project-monthly{size:A4 landscape;margin:8mm}
 @media print{
   body.print-report .project-monthly-report-sheet{page:project-monthly;break-inside:auto!important}
   body.print-report .project-monthly-report-sheet>header,body.print-report .project-monthly-report-sheet>.starter-kpis,body.print-report .project-monthly-report-sheet>.project-report-chart,body.print-report .project-monthly-report-sheet>.output-procurement,body.print-report .project-monthly-report-sheet>.report-columns,body.print-report .project-monthly-report-sheet>.report-related-sdgs,body.print-report .project-monthly-report-sheet>.report-reading-card{break-inside:avoid}
@@ -311,4 +314,301 @@
   body.print-project-monthly-report .project-monthly-report-sheet .report-reading-card{break-inside:avoid}
   body.print-project-monthly-report .project-monthly-report-sheet .project-report-photos img{height:110px!important}
   body.print-project-monthly-report .project-monthly-report-sheet .project-report-expenses{break-inside:avoid}
+}
+
+/* Step 4 monthly report: one landscape A4 composition for preview, PNG, and PDF. */
+.project-monthly-report-sheet{page:project-monthly;width:min(100%,281mm);box-sizing:border-box;margin:0 auto;padding:12px 14px;background:#fff;color:#183b63}
+.project-monthly-report-sheet>header{margin:0 0 7px;padding:0 0 7px}
+.project-monthly-report-sheet>header small{font-size:8px;letter-spacing:.08em;color:#2868aa}
+.project-monthly-report-sheet>header h2{margin:3px 0;font-size:12px;line-height:1.15;font-weight:600}
+.project-monthly-report-sheet>header p{margin:0;font-size:15px;line-height:1.25;font-weight:800;color:#173f70}
+.project-monthly-report-sheet .project-report-kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:7px 0}
+.project-monthly-report-sheet .project-report-kpis>div{padding:7px 9px;border-radius:7px}
+.project-monthly-report-sheet .project-report-kpis span{font-size:8px}
+.project-monthly-report-sheet .project-report-kpis strong{margin-top:2px;font-size:14px}
+.project-monthly-report-sheet .project-report-main-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:9px;align-items:stretch;margin:7px 0}
+.project-monthly-report-sheet .project-report-chart{min-width:0;margin:0;padding:8px 9px;border:1px solid #e3eaf2;border-radius:8px;background:#fbfdff}
+.project-monthly-report-sheet .project-report-chart h3{margin:0 0 4px;font-size:10px}
+.project-monthly-report-sheet .project-report-chart .starter-chart{height:146px;min-height:0}
+.project-monthly-report-sheet .project-report-chart .chart-key{margin-top:2px;gap:7px;font-size:7px}
+.project-monthly-report-sheet .project-report-main-details{display:grid;grid-template-rows:auto 1fr;gap:6px;min-width:0}
+.project-monthly-report-sheet .report-reading-card{min-width:0;margin:0;padding:7px 9px;border-radius:7px}
+.project-monthly-report-sheet .report-reading-card h3{margin:0 0 3px;font-size:9px;line-height:1.25}
+.project-monthly-report-sheet .report-reading-card h3:not(:first-child){margin-top:5px}
+.project-monthly-report-sheet .report-reading-card p{margin:0 0 4px;font-size:8px;line-height:1.35;overflow-wrap:anywhere}
+.project-monthly-report-sheet .project-report-summary-card{background:#f3f7fc}
+.project-monthly-report-sheet .project-report-two-col{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;align-items:stretch;margin:0}
+.project-monthly-report-sheet .project-report-result-card{grid-column:1/-1;border-color:#c9e5d7;border-left:3px solid #15956e;background:#f3faf6}
+.project-monthly-report-sheet .project-report-result-card .report-result-metric{gap:2px;padding:5px 7px;background:#fff}
+.project-monthly-report-sheet .project-report-result-card .report-result-metric span,.project-monthly-report-sheet .project-report-result-card .report-result-metric small{font-size:7px}
+.project-monthly-report-sheet .project-report-result-card .report-result-metric strong{font-size:13px;color:#087b55}
+.project-monthly-report-sheet .project-report-bottom-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.9fr) minmax(0,1fr);gap:7px;align-items:stretch;margin:7px 0}
+.project-monthly-report-sheet .project-report-bottom-grid>.report-reading-card,.project-monthly-report-sheet .project-report-bottom-grid>.output-procurement{min-width:0;margin:0;padding:7px 8px}
+.project-monthly-report-sheet .report-related-sdgs{background:#fbfcfd}
+.project-monthly-report-sheet .project-report-result-card{grid-column:auto}
+.project-monthly-report-sheet .sample-report-sdg-card{grid-column:auto;background:#fbfcfd;border-color:#dce7f4}
+.project-monthly-report-sheet .sample-report-sdg-card .report-sdg-list{display:grid;grid-template-columns:1fr;gap:4px}
+.project-monthly-report-sheet .sample-report-sdg-card .report-sdg-item{min-width:0}
+.project-monthly-report-sheet .report-sdg-list{grid-template-columns:1fr;gap:4px}
+.project-monthly-report-sheet .report-sdg-item{gap:5px;padding:4px 5px}
+.project-monthly-report-sheet .report-sdg-item>span{padding:2px 4px;font-size:7px}
+.project-monthly-report-sheet .report-sdg-item strong{font-size:7px;line-height:1.25}
+.project-monthly-report-sheet .report-sdg-item small{margin-top:1px;font-size:6.5px;line-height:1.25}
+.project-monthly-report-sheet .output-procurement h3{font-size:9px;margin:0 0 3px}
+.project-monthly-report-sheet .output-procurement-row{grid-template-columns:minmax(0,1.1fr) minmax(70px,.8fr) auto;gap:5px;padding:3px 0;font-size:7px;line-height:1.25}
+.project-monthly-report-sheet .output-procurement-row b small{display:block;font-size:6px}
+.project-monthly-report-sheet .output-procurement-row strong{text-align:right;font-size:7px}
+.project-monthly-report-sheet .project-report-photos .report-photo-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.project-monthly-report-sheet .project-report-photos .report-photo-grid figure{min-width:0}
+.project-monthly-report-sheet .project-report-photos .report-photo-grid img{height:50px;object-fit:cover}
+.project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,.9fr) minmax(0,1fr)}
+.project-monthly-report-sheet .project-report-chart .trend-chart-wrap{margin:2px 0 0;padding:4px;border:0;border-radius:0;background:transparent}
+.project-monthly-report-sheet .project-report-chart .trend-chart{height:120px;max-height:120px}
+.project-monthly-report-sheet .example-report-photos{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.project-monthly-report-sheet .example-report-photos figure{min-width:0}
+.project-monthly-report-sheet .example-report-photos .example-photo{height:50px;font-size:24px;background-image:none}
+.project-monthly-report-sheet .example-report-photos .photo-a{background-color:#d8eee2}
+.project-monthly-report-sheet .example-report-photos .photo-b{background-color:#dceafd}
+.project-monthly-report-sheet .example-report-photos .photo-c{background-color:#fff0d6}
+.project-monthly-report-sheet .example-report-photos figcaption{padding:2px 3px;font-size:6px;line-height:1.2;overflow-wrap:anywhere}
+.project-monthly-report-sheet .project-report-photos figcaption{padding:2px 3px;font-size:6px;line-height:1.2;overflow-wrap:anywhere}
+.project-monthly-report-sheet>footer{margin-top:5px;padding-top:4px;border-top:1px solid #dce7f4;font-size:7px;line-height:1.25}
+/* Monthly report composition: give the chart and selected activity photos more room. */
+.project-monthly-report-sheet .project-report-main-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)}
+.project-monthly-report-sheet .project-report-chart .starter-chart{width:100%;height:220px;min-height:0}
+.project-monthly-report-sheet .project-report-chart .trend-chart{width:100%;height:190px;max-height:none}
+.project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:minmax(130px,.72fr) minmax(190px,.95fr) minmax(340px,1.8fr)}
+.project-monthly-report-sheet .project-report-photos .report-photo-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.project-monthly-report-sheet .project-report-photos .report-photo-grid img{height:92px}
+.project-monthly-report-sheet .project-report-bottom-grid>.report-reading-card,.project-monthly-report-sheet .project-report-bottom-grid>.output-procurement{padding:8px 9px}
+@media(max-width:700px){.project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:1fr}.project-monthly-report-sheet .project-report-main-grid{grid-template-columns:1fr}.project-monthly-report-sheet .project-report-chart .starter-chart{height:190px}}
+@media print{
+  body.print-report .project-monthly-report-sheet .project-report-main-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)!important}
+  body.print-report .project-monthly-report-sheet .project-report-chart .starter-chart{height:190px!important;min-height:0!important}
+  body.print-report .project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:minmax(0,.72fr) minmax(0,.95fr) minmax(0,1.8fr)!important}
+  body.print-report .project-monthly-report-sheet .project-report-photos .report-photo-grid img{height:72px!important}
+}
+@page project-monthly{size:A4 landscape;margin:8mm}
+@media(max-width:700px){.project-monthly-report-sheet{width:100%}.project-monthly-report-sheet .project-report-main-grid{grid-template-columns:1fr}.project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:1fr 1fr}.project-monthly-report-sheet .project-report-two-col{grid-template-columns:1fr 1fr}}
+@media print{
+  @page project-monthly{size:A4 landscape;margin:8mm}
+  body.print-report .project-monthly-report-sheet{page:project-monthly;width:281mm!important;max-width:none!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;background:#fff!important;break-inside:avoid-page!important;page-break-inside:avoid!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  body.print-report .project-monthly-report-sheet .project-report-main-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)!important}
+  body.print-report .project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:minmax(0,.72fr) minmax(0,.95fr) minmax(0,1.8fr)!important}
+  body.print-report .project-monthly-report-sheet .project-report-chart .starter-chart{height:205px!important;min-height:0!important}
+  body.print-report .project-monthly-report-sheet .project-report-chart .trend-chart{height:180px!important;max-height:none!important}
+  body.print-report .project-monthly-report-sheet .project-report-photos .report-photo-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  body.print-report .project-monthly-report-sheet .project-report-photos .report-photo-grid img{height:72px!important}
+  body.print-report .project-monthly-report-sheet .example-report-photos{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  body.print-report .project-monthly-report-sheet .example-report-photos .example-photo{height:72px!important}
+  body.print-report .project-monthly-report-sheet>*{break-inside:auto!important;page-break-inside:auto!important}
+  body.print-report .project-monthly-report-sheet :is(.project-report-main-grid,.project-report-main-details,.project-report-two-col,.project-report-bottom-grid){break-inside:auto!important;page-break-inside:auto!important}
+  body.print-report .project-monthly-report-sheet :is(figure,.report-result-metric,.output-procurement-row,.report-sdg-item){break-inside:avoid!important;page-break-inside:avoid!important}
+  body.print-report .project-monthly-report-sheet .project-report-main-grid{gap:6px!important;margin:5px 0!important}
+  body.print-report .project-monthly-report-sheet .project-report-bottom-grid{gap:6px!important;margin:5px 0!important}
+  body.print-report .project-monthly-report-sheet .project-report-chart .trend-chart{height:180px!important;max-height:none!important}
+  body.print-report .project-monthly-report-sheet .project-report-result-card{grid-column:1/-1}
+}
+
+/* Monthly report layout refinement: SDGs first, compact expenses, wider activity photos. */
+.project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:minmax(190px,.9fr) minmax(130px,.72fr) minmax(340px,1.8fr)}
+.project-monthly-report-sheet .project-report-chart .starter-chart{height:240px}
+.project-monthly-report-sheet .project-report-chart .trend-chart{height:210px}
+.project-monthly-report-sheet .project-report-photos .example-report-photos .example-photo{height:112px}
+@media print{body.print-report .project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:minmax(0,.9fr) minmax(0,.72fr) minmax(0,1.8fr)!important}body.print-report .project-monthly-report-sheet .project-report-chart .starter-chart{height:215px!important}body.print-report .project-monthly-report-sheet .project-report-chart .trend-chart{height:190px!important}body.print-report .project-monthly-report-sheet .project-report-photos .example-report-photos .example-photo{height:82px!important}}
+
+/* Keep the expense and SDG cards equal in width; preserve the wider photo area. */
+.project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:minmax(150px,.82fr) minmax(150px,.82fr) minmax(340px,1.8fr)}
+@media print{body.print-report .project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:minmax(0,.82fr) minmax(0,.82fr) minmax(0,1.8fr)!important}}
+
+/* PNG and PDF exports share a fixed landscape report composition. */
+.project-monthly-report-sheet.export-layout{box-sizing:border-box;width:281mm!important;max-width:none!important;margin:0 auto!important}
+.project-monthly-report-sheet.export-layout .project-report-main-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)!important}
+.project-monthly-report-sheet.export-layout .project-report-bottom-grid{grid-template-columns:minmax(0,.82fr) minmax(0,.82fr) minmax(0,1.8fr)!important}
+.project-monthly-report-sheet.export-layout .project-report-chart .starter-chart{height:240px!important;min-height:0!important}
+.project-monthly-report-sheet.export-layout .project-report-chart .trend-chart{height:210px!important;max-height:none!important}
+.project-monthly-report-sheet.export-layout .project-report-photos .report-photo-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.project-monthly-report-sheet.export-layout .project-report-photos .report-photo-grid img{height:92px!important}
+@media print{
+  body.print-report .project-monthly-report-sheet.export-layout{page:project-monthly;width:281mm!important;max-width:none!important;box-sizing:border-box;margin:0 auto!important;padding:12px 14px!important;border:1px solid #dbe4ef!important;border-radius:0!important;box-shadow:none!important;background:#fff!important;break-inside:avoid-page!important;page-break-inside:avoid!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  body.print-report .project-monthly-report-sheet.export-layout .project-report-main-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)!important}
+  body.print-report .project-monthly-report-sheet.export-layout .project-report-bottom-grid{grid-template-columns:minmax(0,.82fr) minmax(0,.82fr) minmax(0,1.8fr)!important}
+  body.print-report .project-monthly-report-sheet.export-layout .project-report-chart .starter-chart{height:240px!important}
+  body.print-report .project-monthly-report-sheet.export-layout .project-report-chart .trend-chart{height:210px!important}
+  body.print-report .project-monthly-report-sheet.export-layout .project-report-photos .report-photo-grid img{height:92px!important}
+  body.print-report .project-monthly-report-sheet.export-layout .project-report-result-card{grid-column:auto!important}
+  body.print-report .project-monthly-report-sheet.export-layout>*{break-inside:auto!important;page-break-inside:auto!important}
+}
+
+/* Monthly report: pair the indicator result with its related SDGs and give expenses room to scan. */
+.project-monthly-report-sheet .project-report-result-sdg-grid{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:6px;min-width:0;align-items:stretch}
+.project-monthly-report-sheet .project-report-result-sdg-grid>*{min-width:0;height:100%;box-sizing:border-box}
+.project-monthly-report-sheet .project-report-result-sdg-grid .project-report-result-card{grid-column:auto}
+.project-monthly-report-sheet .project-report-result-sdg-grid .report-related-sdgs{background:#fbfcfd}
+.project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)!important}
+.project-monthly-report-sheet .output-procurement-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px;min-width:0}
+.project-monthly-report-sheet .output-procurement-row{grid-template-columns:18px minmax(0,1fr) auto!important;grid-template-rows:auto auto;align-items:start;gap:2px 6px;padding:6px 0;border-top:0;border-bottom:1px solid #e7edf4;font-size:8px;line-height:1.3;min-width:0}
+.project-monthly-report-sheet .output-procurement-row .expense-order{grid-column:1;grid-row:1/3;display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#edf4fb;color:#285f91;font-size:7px;font-weight:800}
+.project-monthly-report-sheet .output-procurement-row>b{grid-column:2;grid-row:1;min-width:0;overflow-wrap:anywhere}
+.project-monthly-report-sheet .output-procurement-row .expense-proof-status{grid-column:2;grid-row:2;min-width:0;font-size:7px;line-height:1.3;overflow-wrap:anywhere}
+.project-monthly-report-sheet .output-procurement-row strong{grid-column:3;grid-row:1/3;align-self:center;text-align:right;font-size:8px;white-space:nowrap}
+.project-monthly-report-sheet .output-procurement-row>b small{font-size:6.5px;line-height:1.25}
+.project-monthly-report-sheet .output-procurement-total{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:5px;padding-top:5px;border-top:1px solid #dce7f2;color:#526b84;font-size:8px}
+.project-monthly-report-sheet .output-procurement-total strong{color:#175a9e;font-size:9px;white-space:nowrap}
+.project-monthly-report-sheet.export-layout .project-report-bottom-grid{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)!important}
+@media(max-width:700px){.project-monthly-report-sheet .project-report-result-sdg-grid{grid-template-columns:1fr}.project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:1fr!important}.project-monthly-report-sheet .output-procurement-list{grid-template-columns:1fr}}
+@media print{
+  body.print-report .project-monthly-report-sheet .project-report-result-sdg-grid{grid-column:1/-1;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)!important}
+  body.print-report .project-monthly-report-sheet .project-report-result-sdg-grid .project-report-result-card{grid-column:auto!important}
+  body.print-report .project-monthly-report-sheet .project-report-bottom-grid,
+  body.print-report .project-monthly-report-sheet.export-layout .project-report-bottom-grid{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)!important}
+  body.print-report .project-monthly-report-sheet .output-procurement-list{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+
+/* Monthly report layout follows the requested arrangement: expenses and SDGs side by side, photos below expenses. */
+.project-monthly-report-sheet .project-report-result-sdg-grid{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr);gap:6px;min-width:0;align-items:stretch}
+.project-monthly-report-sheet .project-report-result-sdg-grid .project-report-result-card{grid-column:auto}
+.project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)!important;align-items:start}
+.project-monthly-report-sheet .project-report-bottom-grid .project-report-photos{grid-column:auto}
+.project-monthly-report-sheet.export-layout .project-report-bottom-grid{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)!important}
+@media(max-width:700px){.project-monthly-report-sheet .project-report-result-sdg-grid{grid-template-columns:1fr}.project-monthly-report-sheet .project-report-bottom-grid{grid-template-columns:1fr!important}.project-monthly-report-sheet .project-report-bottom-grid .project-report-photos{grid-column:auto}}
+@media print{
+ body.print-report .project-monthly-report-sheet .project-report-result-sdg-grid{grid-column:1/-1;grid-template-columns:minmax(0,1fr)!important}
+ body.print-report .project-monthly-report-sheet .project-report-bottom-grid,
+ body.print-report .project-monthly-report-sheet.export-layout .project-report-bottom-grid{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)!important}
+ body.print-report .project-monthly-report-sheet .project-report-bottom-grid .project-report-photos{grid-column:auto}
+}
+
+/* Keep the expense and activity cards the same height while making expense rows compact. */
+.project-monthly-report-sheet .project-report-bottom-grid{align-items:stretch}
+.project-monthly-report-sheet .project-report-bottom-grid>.output-procurement,
+.project-monthly-report-sheet .project-report-bottom-grid>.project-report-photos{align-self:stretch;box-sizing:border-box}
+.project-monthly-report-sheet .output-procurement{display:flex;flex-direction:column}
+.project-monthly-report-sheet .output-procurement>.output-procurement-row,
+.project-monthly-report-sheet .output-procurement-list .output-procurement-row{padding:4px 0;line-height:1.15}
+.project-monthly-report-sheet .output-procurement-row>b small{margin-top:1px;line-height:1.1}
+.project-monthly-report-sheet .output-procurement-list{gap:0}
+.project-monthly-report-sheet .project-report-photos{display:flex;flex-direction:column}
+.project-monthly-report-sheet .project-report-photos>.example-report-photos,
+.project-monthly-report-sheet .project-report-photos>.report-photo-grid{flex:1 1 auto}
+
+/* Keep the result and SDG summaries side by side in the preview, with a little more room for SDG details. */
+.project-monthly-report-sheet .project-report-result-sdg-grid{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)!important;gap:6px}
+.project-monthly-report-sheet .project-report-result-sdg-grid .project-report-result-card,
+.project-monthly-report-sheet .project-report-result-sdg-grid .report-related-sdgs{min-width:0}
+.project-monthly-report-sheet .project-report-result-sdg-grid .report-related-sdgs{padding:8px}
+.project-monthly-report-sheet .project-report-result-sdg-grid .report-sdg-item{min-width:0}
+@media(max-width:700px){.project-monthly-report-sheet .project-report-result-sdg-grid{grid-template-columns:1fr!important}}
+
+/* Final preview proportions: rebalance space only; keep all report content intact. */
+.project-monthly-report-sheet:not(.export-layout) .project-report-main-grid{
+  grid-template-columns:minmax(0,1fr) minmax(0,.96fr);
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-main-grid>.project-report-chart,
+.project-monthly-report-sheet:not(.export-layout) .project-report-main-grid>.project-report-main-details{
+  min-width:0;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-bottom-grid{
+  grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)!important;
+  align-items:stretch;
+}
+.project-monthly-report-sheet:not(.export-layout) .output-procurement-list{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  column-gap:10px;
+}
+
+/* Approved preview hierarchy: retain all content while giving the right-hand details
+   a clear two-by-two reading order and making the lower expense/photo row balanced. */
+.project-monthly-report-sheet:not(.export-layout) .project-report-main-grid{
+  grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)!important;
+  align-items:stretch!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-main-details{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:6px!important;
+  min-width:0;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-summary-card{flex:0 0 auto!important}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:6px!important;
+  margin:0!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-result-sdg-grid{display:contents!important}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns > section:nth-child(1){grid-column:1;grid-row:1}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns > section:nth-child(2){grid-column:2;grid-row:1}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns .project-report-result-card{grid-column:1;grid-row:2}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns .report-related-sdgs{grid-column:2;grid-row:2}
+.project-monthly-report-sheet:not(.export-layout) .project-report-bottom-grid{
+  grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)!important;
+  gap:7px!important;
+  align-items:stretch!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-bottom-grid>.output-procurement{grid-column:1!important;min-width:0!important}
+.project-monthly-report-sheet:not(.export-layout) .project-report-bottom-grid>.project-report-photos{grid-column:2!important;min-width:0!important}
+.project-monthly-report-sheet:not(.export-layout) .output-procurement-list{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:0 9px!important;
+}
+
+/* Final preview alignment: the chart is slightly narrower, while the
+   information column gets enough room for the original wording. */
+.project-monthly-report-sheet:not(.export-layout) .project-report-main-grid{
+  display:grid!important;
+  grid-template-columns:minmax(0,.96fr) minmax(0,1.04fr)!important;
+  gap:7px!important;
+  align-items:stretch!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-main-details{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:6px!important;
+  min-width:0!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:6px!important;
+  margin:0!important;
+  min-width:0!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns > section:nth-child(1){grid-column:1!important;grid-row:1!important}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns > section:nth-child(2){grid-column:2!important;grid-row:1!important}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns > .project-report-result-sdg-grid{
+  display:contents!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns > .project-report-result-sdg-grid > .project-report-result-card{
+  grid-column:1!important;
+  grid-row:2!important;
+  min-width:0!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-two-col.report-columns > .project-report-result-sdg-grid > .report-related-sdgs{
+  grid-column:2!important;
+  grid-row:2!important;
+  min-width:0!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-bottom-grid{
+  display:grid!important;
+  grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)!important;
+  grid-column:1 / -1!important;
+  width:100%!important;
+  gap:7px!important;
+  align-items:stretch!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-bottom-grid > *{
+  min-width:0!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-bottom-grid > .output-procurement{
+  grid-column:1!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .project-report-bottom-grid > .project-report-photos{
+  grid-column:2!important;
+}
+.project-monthly-report-sheet:not(.export-layout) .output-procurement-list{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:0 9px!important;
 }

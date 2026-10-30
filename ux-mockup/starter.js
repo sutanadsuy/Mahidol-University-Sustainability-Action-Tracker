@@ -444,8 +444,52 @@
     const choices=monthChoicesForYear(ui.year,ui.projectId);
     if(!choices.includes(ui.month))ui.month=defaultMonthForYear(ui.year)||yearMonths(ui.year)[0];
   }
-  function heading(kicker, title, description, aside = '') { return `<div class="page-head"><div><p class="eyebrow">${esc(kicker)}</p><h1>${esc(title)}</h1><p class="muted">${esc(description)}</p></div>${aside}</div>`; }
+  function heading(kicker, title, description, aside = '') { const titleClass = title === 'สรุปผลการดำเนินงานประจำเดือน' ? 'report-review-page-title' : ''; return `<div class="page-head"><div><p class="eyebrow">${esc(kicker)}</p><h1 class="${titleClass}">${esc(title)}</h1><p class="muted">${esc(description)}</p></div>${aside}</div>`; }
   function emptyBox(title, detail, page, button) { return `<div class="empty-box"><strong>${esc(title)}</strong>${esc(detail)}${page ? `<div class="starter-actions" style="justify-content:center"><button class="btn primary-btn" data-go="${page}">${esc(button)}</button></div>` : ''}</div>`; }
+  function ensureExampleReportSdgCard() {
+    const sheet = document.querySelector('.project-monthly-report-sheet');
+    // The sample report now renders its SDG section in the template itself.
+    // Only add the legacy fallback when no SDG section exists at all; otherwise
+    // it would append a second, duplicate card every time the example is opened.
+    if (!sheet || sheet.querySelector('.report-related-sdgs')) return;
+    const columns = sheet.querySelector('.project-report-two-col');
+    if (!columns) return;
+    const card = document.createElement('section');
+    card.className = 'report-reading-card report-related-sdgs sample-report-sdg-card';
+    card.innerHTML = '<h3>SDG ที่เกี่ยวข้อง</h3><div class="report-sdg-list"><div class="report-sdg-item" style="--sdg-color:#d6a328"><span>SDG 12</span><div><strong>การบริโภคและการผลิตที่ยั่งยืน</strong><small>ลดปริมาณขยะอาหารและส่งเสริมการคัดแยก</small></div></div><div class="report-sdg-item" style="--sdg-color:#3f8b4d"><span>SDG 13</span><div><strong>การรับมือการเปลี่ยนแปลงสภาพภูมิอากาศ</strong><small>ลดผลกระทบจากขยะอาหารในโรงอาหาร</small></div></div></div>';
+    columns.appendChild(card);
+  }
+  function normalizeDashboardReportKpis() {
+    const kpis = document.querySelector('.dashboard-project-report-print-target .project-report-kpis, .project-monthly-report-sheet .project-report-kpis');
+    if (!kpis) return;
+    if (ui.page === 'report-example') {
+      const sample = currentMonthlyExample();
+      const actual = exampleProgress(sample.phases || {});
+      const planValue = safeNum(sample.planned);
+      const gap = actual - planValue;
+      const totalPaid = safeNum(sample.procurementPaid) + safeNum(sample.loanPaid) + safeNum(sample.otherPaid);
+      const cumulative = safeNum(sample.priorPaid) + totalPaid;
+      const budget = safeNum(sample.budget) || 200000;
+      const remaining = Math.max(0, budget - cumulative);
+      const varianceClass = gap < -0.05 ? 'variance-negative' : gap > 0.05 ? 'variance-positive' : 'variance-neutral';
+      const varianceText = `${gap > 0 ? '+' : ''}${gap.toFixed(1)} จุด`;
+      kpis.innerHTML = `<div class="${varianceClass}"><span>ผลเทียบแผน</span><strong>${varianceText}</strong><small>ผลจริง ${actual.toFixed(1)}% · แผน ${planValue.toFixed(1)}%</small></div><div><span>งบโครงการ</span><strong>${money(budget)} บาท</strong><small>จัดสรรตามแผนโครงการ</small></div><div><span>จ่ายเดือนนี้</span><strong>${money(totalPaid)} บาท</strong><small>ยอดถึง ${monthLabel(sample.month || ui.month)}</small></div><div><span>จ่ายสะสม · คงเหลือ</span><strong>จ่ายสะสม ${money(cumulative)} บาท</strong><small>คงเหลือ ${money(remaining)} บาท</small></div>`;
+      return;
+    }
+    const project = selectedProject() || yearProjects()[0];
+    if (!project) return;
+    const report = getReport(project.id, ui.month) || projectReports(project.id).at(-1);
+    if (!report) return;
+    const planValue = plannedAt(project.id, report.month) ?? 0;
+    const actual = progress(report.phases || {}) ?? 0;
+    const gap = actual - planValue;
+    const monthPaid = paid(report);
+    const cumulative = paidThrough(project.id, report.month);
+    const remaining = Math.max(0, safeNum(project.budget) - cumulative);
+    const varianceClass = gap < -0.05 ? 'variance-negative' : gap > 0.05 ? 'variance-positive' : 'variance-neutral';
+    const varianceText = `${gap > 0 ? '+' : ''}${gap.toFixed(1)} จุด`;
+    kpis.innerHTML = `<div class="${varianceClass}"><span>ผลเทียบแผน</span><strong>${varianceText}</strong><small>ผลจริง ${actual.toFixed(1)}% · แผน ${planValue.toFixed(1)}%</small></div><div><span>งบโครงการ</span><strong>${money(safeNum(project.budget))} บาท</strong><small>จัดสรรตามแผนโครงการ</small></div><div><span>จ่ายเดือนนี้</span><strong>${money(monthPaid)} บาท</strong><small>ยอดถึง ${monthLabel(report.month)}</small></div><div><span>จ่ายสะสม · คงเหลือ</span><strong>จ่ายสะสม ${money(cumulative)} บาท</strong><small>คงเหลือ ${money(remaining)} บาท</small></div>`;
+  }
   function controls(project = true, month = false) {
     return `<div class="card starter-toolbar"><label>ปีงบประมาณ<input id="context-year" type="number" min="2560" max="2600" value="${ui.year}"></label><button type="button" class="mini-btn" id="apply-year">ดูข้อมูลปีที่เลือก</button>${project ? `<label>โครงการ<select id="context-project">${projectOptions()}</select></label>` : ''}${month ? `<label>ข้อมูลถึงเดือน<select id="context-month">${monthChoicesForYear(ui.year,ui.projectId).map(key => `<option value="${key}" ${ui.month === key ? 'selected' : ''}>${monthLabel(key)}</option>`).join('')}</select></label>` : ''}<span class="muted" style="font-size:12px">ข้อมูลทั้งหมดในต้นแบบนี้เก็บเฉพาะเบราว์เซอร์เครื่องนี้</span></div>`;
   }
@@ -463,6 +507,10 @@
       pageMarkup = `${heading('เกิดข้อผิดพลาด', 'เปิดหน้านี้ไม่สำเร็จ', 'ลองเปิดอีกครั้ง หรือกลับไปหน้าแรก')}${emptyBox('ไม่สามารถแสดงเนื้อหาหน้านี้ได้', 'ระบบบันทึกข้อผิดพลาดไว้ในคอนโซลสำหรับตรวจสอบ', 'home', 'กลับหน้าแรก')}`;
     } finally { db = storedDb; }
     screen.innerHTML = pageMarkup;
+    if (['dashboard','project-output','report-example','review'].includes(ui.page)) normalizeDashboardReportKpis();
+    // The sample report must always include the SDG section once its report sheet exists.
+    // The helper is safe on the input/wizard view because it exits when no sheet is present.
+    if (ui.page === 'report-example') ensureExampleReportSdgCard();
     if (ui.page === 'report') setReportStep(ui.reportStep, false);
     if (isYearClosed() && ui.page !== 'admin') screen.insertAdjacentHTML('afterbegin', `<div class="year-lock-banner"><strong>ปีงบ ${ui.year} ปิดแล้ว</strong><span>เปิดดูข้อมูลได้ แต่การบันทึกหรือแก้ไขจะถูกระงับ</span><button type="button" data-go="admin">ไปเปิดปีงบ</button></div>`);
     if (isYearClosed()) screen.querySelectorAll('#budget-form,#project-form,#weights-form,#document-form,#plan-form,#report-form,#copy-year-form').forEach(form=>form.querySelectorAll('input,select,textarea,button').forEach(control=>{control.disabled=true;}));
@@ -763,31 +811,13 @@
     const x=i=>50+i*75,y=value=>215-safeNum(value)*1.8;
     const points=(values,startAt=0)=>values.map((value,index)=>value==null?null:`${x(index+startAt)},${y(value)}`).filter(Boolean).join(' ');
     const chart=`<div class="trend-chart-wrap"><svg class="trend-chart" viewBox="0 0 700 270" role="img" aria-label="แผน ผลจริง และแนวโน้มคาดการณ์รายเดือน"><g class="chart-grid">${[0,25,50,75,100].map(value=>`<line x1="45" y1="${y(value)}" x2="665" y2="${y(value)}"/><text x="10" y="${y(value)+4}">${value}</text>`).join('')}</g><polyline class="chart-plan" points="${points(planValues)}"/><polyline class="chart-actual" points="${points(actualValues.slice(0,4))}"/><polyline class="chart-forecast" points="${points(actualValues.slice(3,forecastIndex+1),3)}"/>${chartLabels.map((label,index)=>`<text class="chart-label" x="${x(index)}" y="246">${label}</text>`).join('')}<circle class="chart-current" cx="${x(3)}" cy="${y(actual)}" r="5"/></svg><div class="chart-legend"><span><i class="legend-plan"></i>แผนตั้งต้น</span><span><i class="legend-actual"></i>ผลจริง</span><span><i class="legend-forecast"></i>คาดการณ์</span></div></div>`;
-    return `${heading('รายงานสรุปผล · กันยายน 2569','สรุปผลการดำเนินงานประจำเดือน','รายงานตัวอย่างจากข้อมูลที่กรอก · เปลี่ยนสถานการณ์หรือกลับไปแก้ไขได้')}<div class="screen-controls starter-actions"><button type="button" class="btn quiet-btn" data-example-form>← กลับไปแก้ไข</button><button type="button" class="btn quiet-btn" data-example-image>ดาวน์โหลด PNG</button><button type="button" class="btn primary-btn" data-print>พิมพ์ / บันทึก PDF</button></div><article class="report-sheet print-target"><header><small>MAHIDOL UNIVERSITY · SUSTAINABILITY</small><h2>สรุปผลการดำเนินงานประจำเดือน</h2><p>โครงการลดขยะอาหารและส่งเสริมการคัดแยก · ปีงบประมาณ 2569 · กันยายน 2569</p></header><div class="starter-kpis"><div><span>แผนสะสม</span><strong>${sample.planned.toFixed(1)}%</strong></div><div><span>ผลสะสม</span><strong>${actual.toFixed(1)}%</strong><small class="${statusClass}">${statusText}</small></div><div><span>จ่ายเดือนนี้</span><strong>${money(totalPaid)} บาท</strong></div><div><span>จ่ายสะสม</span><strong>${money(cumulativePaid)} บาท</strong></div></div><section class="report-trend-section"><h3>แผนตั้งต้น ผลจริง และแนวโน้ม</h3><p>ผลสะสมถึงกันยายน ${actual.toFixed(1)}% · แผนสะสม ${sample.planned.toFixed(1)}% · คาดว่าจะเสร็จ ${esc(sample.forecast)}</p>${chart}</section><div class="report-columns"><section><h3>งานที่ทำในเดือนนี้</h3><p>${esc(sample.summary)}</p><h3>ผลลัพธ์ที่เกี่ยวข้อง</h3><p>ปริมาณขยะอาหารลดลงจากเดือนก่อน และมีร้านค้าเข้าร่วมเพิ่มขึ้น · SDG 12 การผลิตและบริโภคที่ยั่งยืน</p></section><section><h3>เรื่องที่ต้องติดตาม</h3><p>${esc(sample.reason||'รวบรวมข้อมูลจากร้านค้าที่เข้าร่วมและติดตามผลรอบถัดไป')}</p><h3>กำหนดเสร็จ</h3><p>แผนตั้งต้น ${esc(sample.baselineEnd)} · คาดการณ์ล่าสุด ${esc(sample.forecast)}</p></section></div><section><h3>ภาพกิจกรรมที่เลือกแสดง · 3 / 3 ภาพ</h3><div class="example-report-photos"><figure><div class="example-photo photo-a">🥗</div><figcaption>กิจกรรมรณรงค์ลดอาหารเหลือ</figcaption></figure><figure><div class="example-photo photo-b">♻️</div><figcaption>จุดคัดแยกขยะในโรงอาหาร</figcaption></figure><figure><div class="example-photo photo-c">👥</div><figcaption>ทีมงานลงพื้นที่เก็บข้อมูล</figcaption></figure></div></section><footer>รายงานตัวอย่าง · สร้างจากข้อมูลจำลอง · ไฟล์จริงจะถูกบันทึกเมื่อส่งรายงานในระบบ</footer></article>`;
+    return `${heading('รายงานสรุปผล · กันยายน 2569','สรุปผลการดำเนินงานประจำเดือน','รายงานตัวอย่างจากข้อมูลที่กรอก · เปลี่ยนสถานการณ์หรือกลับไปแก้ไขได้')}<div class="screen-controls starter-actions"><button type="button" class="btn quiet-btn" data-example-form>← กลับไปแก้ไข</button><button type="button" class="btn quiet-btn" data-example-image>ดาวน์โหลด PNG</button><button type="button" class="btn primary-btn" data-print>พิมพ์ / บันทึก PDF</button></div><article class="report-sheet print-target project-monthly-report-sheet"><header><small>MAHIDOL UNIVERSITY · SUSTAINABILITY ACTION TRACKER</small><h2>สรุปผลการดำเนินงานประจำเดือน</h2><p>โครงการลดขยะอาหารและส่งเสริมการคัดแยก · ปีงบประมาณ 2569 · กันยายน 2569</p></header><div class="project-report-kpis"><div><span>แผนสะสม</span><strong>${sample.planned.toFixed(1)}%</strong></div><div><span>ผลสะสม</span><strong>${actual.toFixed(1)}%</strong><small class="${statusClass}">${statusText}</small></div><div><span>จ่ายเดือนนี้</span><strong>${money(totalPaid)} บาท</strong></div><div><span>จ่ายสะสม</span><strong>${money(cumulativePaid)} บาท</strong></div></div><div class="project-report-main-grid"><section class="project-report-chart report-reading-card"><h3>แผนตั้งต้น ผลจริง และแนวโน้ม</h3><p>ผลสะสมถึงกันยายน ${actual.toFixed(1)}% · แผนสะสม ${sample.planned.toFixed(1)}% · คาดว่าจะเสร็จ ${esc(sample.forecast)}</p>${chart}</section><div class="project-report-main-details"><section class="report-reading-card project-report-summary-card"><h3>งานที่ทำในเดือนนี้</h3><p>${esc(sample.summary)}</p></section><div class="project-report-two-col report-columns"><section class="report-reading-card"><h3>วัตถุประสงค์</h3><p>ลดปริมาณขยะอาหารและส่งเสริมการคัดแยกในโรงอาหาร</p><h3>ผลที่คาดว่าจะได้รับ</h3><p>ร้านค้าและผู้ใช้บริการคัดแยกขยะได้ถูกต้องมากขึ้น</p></section><section class="report-reading-card"><h3>เรื่องที่ต้องติดตาม</h3><p>${esc(sample.reason||'รวบรวมข้อมูลจากร้านค้าที่เข้าร่วมและติดตามผลรอบถัดไป')}</p><h3>กำหนดเสร็จ</h3><p>แผนตั้งต้น ${esc(sample.baselineEnd)} · คาดการณ์ล่าสุด ${esc(sample.forecast)}</p></section><div class="project-report-result-sdg-grid"><section class="report-reading-card project-report-result-card"><h3>ผลลัพธ์และตัวชี้วัด</h3><p>ปริมาณขยะอาหารที่คัดแยกได้</p><div class="report-result-metric"><span>ผลเดือนนี้ · กันยายน 2569</span><strong>72 ตัน</strong><small>เป้าหมาย 120 ตัน</small><small>ผลสะสมจากรายงานตัวอย่าง</small></div></section><section class="report-reading-card report-related-sdgs"><h3>SDG ที่เกี่ยวข้อง</h3><div class="report-sdg-list"><div class="report-sdg-item" style="--sdg-color:#d99a19"><span>SDG 12</span><div><strong>การบริโภคและการผลิตที่ยั่งยืน</strong><small>ลดขยะอาหารและส่งเสริมการคัดแยก</small></div></div><div class="report-sdg-item" style="--sdg-color:#3b8a4a"><span>SDG 13</span><div><strong>การรับมือการเปลี่ยนแปลงสภาพภูมิอากาศ</strong><small>ลดผลกระทบจากขยะอินทรีย์</small></div></div></div></section></div></div></div><div class="project-report-bottom-grid"><section class="output-procurement"><h3>สรุปค่าใช้จ่ายเดือนนี้</h3><div class="output-procurement-list"><div class="output-procurement-row"><span class="expense-order">1</span><b>วัสดุและสื่อกิจกรรม<small>จัดซื้อ/จัดจ้าง · ตรวจรับแล้ว</small></b><span class="expense-proof-status">ตรวจรับแล้ว</span><strong>${money(sample.procurementPaid)} บาท</strong></div><div class="output-procurement-row"><span class="expense-order">2</span><b>ค่าวิทยากร<small>เงินยืมกองคลัง</small></b><span class="expense-proof-status">วางฎีกาใช้หนี้แล้ว</span><strong>${money(sample.loanPaid)} บาท</strong></div><div class="output-procurement-row"><span class="expense-order">3</span><b>รวมจ่ายเดือนนี้</b><span></span><strong>${money(totalPaid)} บาท</strong></div></div></section><section class="project-report-photos report-reading-card"><h3>ภาพกิจกรรมตัวอย่าง · 3 ภาพ</h3><div class="example-report-photos"><figure><div class="example-photo photo-a">🥗</div><figcaption>รณรงค์ลดอาหารเหลือ</figcaption></figure><figure><div class="example-photo photo-b">♻️</div><figcaption>จุดคัดแยกขยะ</figcaption></figure><figure><div class="example-photo photo-c">👥</div><figcaption>ทีมงานลงพื้นที่</figcaption></figure></div></section></div><footer>รายงานตัวอย่าง · สร้างจากข้อมูลจำลอง · ไฟล์จริงจะถูกบันทึกเมื่อส่งรายงานในระบบ</footer></article>`;
   }
 
-  function downloadMonthlyExampleImage() {
-    const sample=currentMonthlyExample(),actual=exampleProgress(sample.phases),totalPaid=sample.procurementPaid+sample.loanPaid+sample.otherPaid;
-    const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=1100;const ctx=canvas.getContext('2d');
-    ctx.fillStyle='#f2f6fb';ctx.fillRect(0,0,1600,1100);ctx.fillStyle='#fff';ctx.fillRect(45,35,1510,1030);
-    ctx.fillStyle='#1e65ac';ctx.font='700 22px Tahoma';ctx.fillText('MAHIDOL UNIVERSITY · SUSTAINABILITY ACTION TRACKER',95,100);
-    ctx.fillStyle='#173f79';ctx.font='700 46px Tahoma';ctx.fillText('สรุปผลการดำเนินงานประจำเดือน',95,175);
-    ctx.fillStyle='#42546a';ctx.font='28px Tahoma';ctx.fillText('โครงการลดขยะอาหารและส่งเสริมการคัดแยก · ก.ย. 2569',95,230);
-    const cards=[['แผนสะสม',`${sample.planned.toFixed(1)}%`],['ผลสะสม',`${actual.toFixed(1)}%`],['จ่ายเดือนนี้',`${money(totalPaid)} บาท`],['จ่ายสะสม',`${money(sample.priorPaid+totalPaid)} บาท`]];cards.forEach(([label,value],i)=>{const x=95+i*355;ctx.fillStyle='#f1f6fc';ctx.fillRect(x,280,330,115);ctx.fillStyle='#64778e';ctx.font='22px Tahoma';ctx.fillText(label,x+18,320);ctx.fillStyle='#175da8';ctx.font='700 30px Tahoma';ctx.fillText(value,x+18,365);});
-    ctx.fillStyle='#173f79';ctx.font='700 28px Tahoma';ctx.fillText('แผนตั้งต้น ผลจริง และแนวโน้ม',95,455);
-    const chartMonths=['มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.','ม.ค. 70','ก.พ.'];
-    const chartPlan=[30,45,62,sample.planned,90,100,100,100,100],prior=exampleProgress(sample.priorPhases),forecastIndex=Math.max(3,['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12','2027-01','2027-02'].indexOf(sample.forecastKey));
-    const chartActual=[prior*.25,prior*.55,prior*.8,actual,null,null,null,null,null];for(let i=4;i<=forecastIndex;i++)chartActual[i]=actual+(100-actual)*(i-3)/(forecastIndex-3||1);
-    const chartX=index=>135+index*162,chartY=value=>700-safeNum(value)*1.8;
-    [0,25,50,75,100].forEach(value=>{ctx.strokeStyle='#e4edf5';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(120,chartY(value));ctx.lineTo(1480,chartY(value));ctx.stroke();ctx.fillStyle='#70839a';ctx.font='16px Tahoma';ctx.fillText(String(value),90,chartY(value)+5);});
-    const drawLine=(values,color,dashed,startIndex=0)=>{ctx.beginPath();let open=false;values.forEach((value,index)=>{if(value==null){open=false;return;}if(!open){ctx.moveTo(chartX(index+startIndex),chartY(value));open=true;}else ctx.lineTo(chartX(index+startIndex),chartY(value));});ctx.strokeStyle=color;ctx.lineWidth=5;ctx.setLineDash(dashed?[12,10]:[]);ctx.stroke();ctx.setLineDash([]);};
-    drawLine(chartPlan,'#3478d4',true);drawLine(chartActual.slice(0,4),'#15956e',false);drawLine(chartActual.slice(3,forecastIndex+1),'#eca432',true,3);
-    chartMonths.forEach((label,index)=>{ctx.fillStyle='#718198';ctx.font='15px Tahoma';ctx.fillText(label,chartX(index)-22,733);});
-    [['#3478d4','แผนตั้งต้น'],['#15956e','ผลจริง'],['#eca432','คาดการณ์']].forEach(([color,label],index)=>{const x=1100+index*155;ctx.strokeStyle=color;ctx.lineWidth=5;ctx.setLineDash(index===0||index===2?[10,8]:[]);ctx.beginPath();ctx.moveTo(x,455);ctx.lineTo(x+32,455);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#536c84';ctx.font='16px Tahoma';ctx.fillText(label,x+40,461);});
-    ctx.fillStyle='#173f79';ctx.font='700 26px Tahoma';ctx.fillText('งานที่ทำในเดือนนี้',95,790);ctx.fillStyle='#34445b';ctx.font='21px Tahoma';ctx.fillText(sample.summary.slice(0,75),95,830);ctx.fillText((sample.reason||`คาดว่าจะเสร็จ ${sample.forecast}`).slice(0,75),95,862);
-    const colors=['#d9efe3','#dcecff','#fff0d9'],marks=['🥗','♻️','👥'];colors.forEach((color,i)=>{const x=95+i*475;ctx.fillStyle=color;ctx.fillRect(x,890,440,125);ctx.font='56px Tahoma';ctx.fillText(marks[i],x+185,965);ctx.fillStyle='#34445b';ctx.font='17px Tahoma';ctx.fillText(['กิจกรรมรณรงค์','จุดคัดแยกขยะ','ทีมงานลงพื้นที่'][i],x+20,998);});
-    ctx.fillStyle='#718198';ctx.font='16px Tahoma';ctx.fillText('ภาพประกอบเป็นภาพจำลอง · ตัวอย่างรายงาน',95,1050);
-    canvas.toBlob(blob=>{if(!blob)return notice('สร้างไฟล์รูปไม่สำเร็จ');const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ตัวอย่างรายงานประจำเดือน.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);notice('ดาวน์โหลดภาพตัวอย่างแล้ว');},'image/png');
+  async function downloadMonthlyExampleImage() {
+    const source=document.querySelector('.project-monthly-report-sheet');
+    if(!source)return notice('ไม่พบหน้ารายงานตัวอย่าง กรุณาเปิดรายงานก่อนดาวน์โหลด');
+    return downloadProjectReportImage({source,filename:'ตัวอย่างรายงานประจำเดือน.png',successMessage:'ดาวน์โหลดรายงาน PNG จากตัวอย่างแล้ว'});
   }
 
   function status(project, month) {
@@ -1134,6 +1164,7 @@
     const report = selectedOutputReport();
     const project = db.projects.find(item=>item.id===report?.projectId);
     if (!report || !project) return `${heading('สรุปรายโครงการ', 'ยังไม่มีรายงาน', 'บันทึกรายงานก่อนแล้วจึงเปิดสรุป')}${emptyBox('ยังไม่มีรายงานที่เลือก', 'กลับไปกรอกผลรายเดือน', 'report', 'ไปกรอกรายงาน')}`;
+    const monthPaid = paid(report);
     const selectedPhotos = (report.attachments || []).filter(file=>file.isImage&&file.featured).slice(0,3);
     const images = (report.attachments || []).filter(file=>file.isImage);
     const plan = getPlan(project.id);
@@ -1143,27 +1174,42 @@
     });
     const monthStatus = status(project,report.month);
     const outputExpenses=readExpenseDetails({get:()=>null,has:()=>false},plan,report);
-    const procurementSummary=outputExpenses.items.map((item,index)=>{const amount=outputExpenses.amounts[index]||0,proofs=(report.attachments||[]).filter(file=>file.expenseIndex===index),status=item.type==='procurement'?(outputExpenses.received[index]?'ตรวจรับแล้ว':'รอตรวจรับ'):item.type==='advance'?(outputExpenses.treasuryCleared[index]?'วางฎีกาใช้หนี้แล้ว':'ยังไม่วางฎีกา'):'ไม่ต้องตรวจรับ/วางฎีกา';return `<div class="output-procurement-row"><b>${esc(item.name||`รายการ ${index+1}`)}<small>${expenseTypeNames[item.type]}</small></b><span>${status}${proofs.length?` · หลักฐาน ${proofs.length} ไฟล์`:''}</span><strong>จ่ายเดือนนี้ ${money(amount)} บาท</strong></div>`;}).join('');
+    const procurementSummary=outputExpenses.items.map((item,index)=>{const amount=outputExpenses.amounts[index]||0,proofs=(report.attachments||[]).filter(file=>file.expenseIndex===index),status=item.type==='procurement'?(outputExpenses.received[index]?'ตรวจรับแล้ว':'รอตรวจรับ'):item.type==='advance'?(outputExpenses.treasuryCleared[index]?'วางฎีกาใช้หนี้แล้ว':'ยังไม่วางฎีกา'):'ไม่ต้องตรวจรับ/วางฎีกา';return `<div class="output-procurement-row"><span class="expense-order">${index+1}</span><b>${esc(item.name||`รายการ ${index+1}`)}<small>${expenseTypeNames[item.type]}</small></b><span class="expense-proof-status">${status}${proofs.length?` · หลักฐาน ${proofs.length} ไฟล์`:''}</span><strong>${money(amount)} บาท</strong></div>`;}).join('');
     return `${heading('ผลลัพธ์หลังบันทึก', 'รายงานโครงการพร้อมใช้', 'เลือกภาพเด่นและแก้คำบรรยายก่อนพิมพ์', `<span class="status-pill saved">${monthLabel(report.month)} · ฉบับ ${report.version}</span>`)}
       <div class="screen-controls starter-actions" style="margin:0 0 18px">${ui.previewReport?'<button class="btn quiet-btn" data-preview-report-back>← กลับไปดูโครงการ</button>':'<button class="btn quiet-btn" data-go="report">← กลับไปแก้รายงาน</button>'}<button class="btn quiet-btn" data-go="archive">รายงานย้อนหลัง</button><button class="btn quiet-btn" data-save-image>ดาวน์โหลดเป็นรูป PNG</button><button class="btn primary-btn" data-print>พิมพ์ / บันทึก PDF</button></div>
       <section class="card screen-controls"><div class="starter-section-title"><div><h2>เลือกภาพที่จะโชว์ในรายงาน</h2><p>เก็บภาพทุกภาพไว้ในรายงานเดือนนี้ แต่เลือกภาพเด่นได้สูงสุด 3 ภาพ</p></div><span class="readonly-pill">${selectedPhotos.length} / 3 ภาพ</span></div>
       ${images.length ? `<div class="photo-grid">${images.map(file=>`<div class="photo-choice ${file.featured?'selected':''}"><img data-blob-id="${file.blobId}" alt="${esc(file.caption||file.name)}"><button data-toggle-photo="${file.id}">${file.featured?'✓ แสดงในรายงาน':'เลือกแสดง'}</button><input data-photo-caption="${file.id}" aria-label="คำบรรยาย ${esc(file.name)}" value="${esc(file.caption||file.name)}"></div>`).join('')}</div>` : emptyBox('ยังไม่มีรูปภาพของเดือนนี้', 'กลับไปแนบภาพในหน้ารายงานรายเดือน')}
       </section>
-      <article class="report-sheet print-target project-monthly-report-sheet"><header><small>MAHIDOL UNIVERSITY · SUSTAINABILITY</small><h2>สรุปผลการดำเนินงานประจำเดือน</h2><p>${esc(project.name)} · ปีงบประมาณ ${project.year} · ${monthLabel(report.month)}</p></header>
-        <div class="starter-kpis"><div><span>แผนสะสม</span><strong>${plannedAt(project.id,report.month).toFixed(1)}%</strong></div><div><span>ผลสะสม</span><strong>${progress(report.phases).toFixed(1)}%</strong><small class="${monthStatus.className}">${monthStatus.label}</small></div><div><span>จ่ายเดือนนี้</span><strong>${money(paid(report))}</strong><small>บาท</small></div><div><span>จ่ายสะสม</span><strong>${money(paidThrough(project.id,report.month))}</strong><small>บาท</small></div></div>
-        <section class="report-reading-card"><h3>แผนตั้งต้น ผลจริง และแนวโน้ม</h3>${projectCurve(project,report.month)}<div class="chart-key"><span><i class="base"></i>แผนตั้งต้น</span><span><i class="actual"></i>ผลจริง</span><span><i class="forecast"></i>คาดการณ์</span><span><i class="current-month-key"></i>เดือนของรายงานนี้</span></div></section>
-        ${procurementSummary?`<section class="output-procurement"><h3>สถานะรายการค่าใช้จ่าย</h3>${procurementSummary}</section>`:''}
-        <section class="report-reading-card"><h3>สรุปผลเดือนนี้</h3><p>${esc(report.summaryText || 'ไม่ได้ระบุ')}</p></section>
-        <div class="report-columns"><section class="report-reading-card"><h3>วัตถุประสงค์</h3><p>${esc(plan?.objective || 'ยังไม่ได้ระบุ')}</p><h3>ผลที่คาดว่าจะได้รับ</h3><p>${esc(plan?.expectedOutcome || 'ยังไม่ได้ระบุ')}</p></section><section class="report-reading-card"><h3>ประเด็นติดตามและแนวทางแก้ไข</h3><p>${esc(report.delay || 'ไม่มีประเด็นที่ระบุ')}</p><h3>เดือนที่คาดว่าจะแล้วเสร็จ</h3><p>${monthLabel(report.forecastMonth || plan?.baselineEnd)}</p></section><section class="report-reading-card project-report-result-card"><h3>ผลลัพธ์และตัวชี้วัด</h3><p>${esc(report.sdgOutcome || 'ยังไม่ได้ระบุผลลัพธ์ประจำเดือน')}</p>${plan?.indicator?`<div class="report-result-metric"><span>ผลเดือนนี้ · ${monthLabel(report.month)}</span><strong>${esc(report.indicatorActual||'ยังไม่ได้รายงานผลตัวชี้วัด')}${report.indicatorActual&&plan.indicatorUnit?` ${esc(plan.indicatorUnit)}`:''}</strong><small>${esc(plan.indicator)} · เป้าหมาย ${esc(plan.target||'ยังไม่ได้กำหนด')}</small></div>`:''}</section></div>
-        <section class="report-reading-card report-related-sdgs"><h3>SDG ที่เกี่ยวข้อง</h3>${relatedSdgs.length?`<div class="report-sdg-list">${relatedSdgs.map(item=>`<div class="report-sdg-item" style="--sdg-color:${sdgColors[item.id]||'#2868a8'}"><span>${esc(item.id)}</span><div><strong>${esc(item.name)}</strong>${item.rationale?`<small>${esc(item.rationale)}</small>`:''}</div></div>`).join('')}</div>`:'<p>โครงการนี้ยังไม่ได้เลือก SDG ที่เกี่ยวข้อง</p>'}</section>
-        ${selectedPhotos.length ? `<section class="report-reading-card"><h3>ภาพกิจกรรมที่เลือกแสดง</h3><div class="report-photo-grid">${selectedPhotos.map(file=>`<figure><img data-blob-id="${file.blobId}" alt="${esc(file.caption||file.name)}"><figcaption>${esc(file.caption||file.name)}</figcaption></figure>`).join('')}</div></section>` : ''}
+      <article class="report-sheet print-target project-monthly-report-sheet"><header><small>MAHIDOL UNIVERSITY · SUSTAINABILITY</small><h2 class="project-report-title">สรุปผลการดำเนินงานประจำเดือน</h2><p class="project-report-project-meta">${esc(project.name)} · ปีงบประมาณ ${project.year} · ${monthLabel(report.month)}</p></header>
+        <div class="project-report-kpis"><div><span>ผลเทียบแผน</span><strong>${(progress(report.phases)-plannedAt(project.id,report.month)).toFixed(1)} จุด</strong><small>ผล ${progress(report.phases).toFixed(1)}% · แผน ${plannedAt(project.id,report.month).toFixed(1)}%</small></div><div><span>งบโครงการ</span><strong>${money(project.budget||0)} บาท</strong><small>จัดสรรตามแผนโครงการ</small></div><div><span>จ่ายเดือนนี้</span><strong>${money(monthPaid||paid(report))} บาท</strong><small>ยอดถึง ${monthLabel(report.month)}</small></div><div><span>จ่ายสะสม · คงเหลือ</span><strong>${money(paidThrough(project.id,report.month))} บาท</strong><small>คงเหลือ ${money(Math.max(0,(project.budget||0)-paidThrough(project.id,report.month)))} บาท</small></div></div>
+        <div class="project-report-main-grid"><section class="project-report-chart report-reading-card"><h3>แผนตั้งต้น ผลจริง และแนวโน้ม</h3>${projectCurve(project,report.month,280)}<div class="chart-key"><span><i class="base"></i>แผนตั้งต้น</span><span><i class="actual"></i>ผลจริง</span><span><i class="forecast"></i>คาดการณ์</span><span><i class="current-month-key"></i>เดือนของรายงานนี้</span></div></section>
+        <div class="project-report-main-details"><section class="report-reading-card project-report-summary-card"><h3>สรุปผลเดือนนี้</h3><p>${esc(report.summaryText || 'ไม่ได้ระบุ')}</p></section>
+        <div class="project-report-two-col report-columns"><section class="report-reading-card"><h3>วัตถุประสงค์</h3><p>${esc(plan?.objective || 'ยังไม่ได้ระบุ')}</p><h3>ผลที่คาดว่าจะได้รับ</h3><p>${esc(plan?.expectedOutcome || 'ยังไม่ได้ระบุ')}</p></section><section class="report-reading-card"><h3>ประเด็นติดตามและแนวทางแก้ไข</h3><p>${esc(report.delay || 'ไม่มีประเด็นที่ระบุ')}</p><h3>เดือนที่คาดว่าจะแล้วเสร็จ</h3><p>${monthLabel(report.forecastMonth || plan?.baselineEnd)}</p></section><div class="project-report-result-sdg-grid"><section class="report-reading-card project-report-result-card"><h3>ผลลัพธ์และตัวชี้วัด</h3><p>${esc(report.sdgOutcome || 'ยังไม่ได้ระบุผลลัพธ์ประจำเดือน')}</p>${plan?.indicator?`<div class="report-result-metric"><span>ผลเดือนนี้ · ${monthLabel(report.month)}</span><strong>${esc(report.indicatorActual||'ยังไม่ได้รายงานผลตัวชี้วัด')}${report.indicatorActual&&plan.indicatorUnit?` ${esc(plan.indicatorUnit)}`:''}</strong><small>${esc(plan.indicator)} · เป้าหมาย ${esc(plan.target||'ยังไม่ได้กำหนด')}</small></div>`:''}</section><section class="report-reading-card report-related-sdgs"><h3>SDG ที่เกี่ยวข้อง</h3>${relatedSdgs.length?`<div class="report-sdg-list">${relatedSdgs.map(item=>`<div class="report-sdg-item" style="--sdg-color:${sdgColors[item.id]||'#2868a8'}"><span>${esc(item.id)}</span><div><strong>${esc(item.name)}</strong>${item.rationale?`<small>${esc(item.rationale)}</small>`:''}</div></div>`).join('')}</div>`:'<p>โครงการนี้ยังไม่ได้เลือก SDG ที่เกี่ยวข้อง</p>'}</section></div></div></div>
+        <div class="project-report-bottom-grid">${procurementSummary?`<section class="output-procurement"><h3>สรุปค่าใช้จ่ายเดือนนี้</h3><div class="output-procurement-list">${procurementSummary}</div><div class="output-procurement-total"><span>รวมจ่ายเดือนนี้</span><strong>${money(monthPaid||0)} บาท</strong></div></section>`:''}
+        ${selectedPhotos.length ? `<section class="project-report-photos report-reading-card"><h3>ภาพกิจกรรมที่เลือกแสดง</h3><div class="report-photo-grid">${selectedPhotos.map(file=>`<figure><img data-blob-id="${file.blobId}" alt="${esc(file.caption||file.name)}"><figcaption>${esc(file.caption||file.name)}</figcaption></figure>`).join('')}</div></section>` : ''}</div>
         <footer>ต้นแบบ · ข้อมูลที่ผู้ทดลองกรอกในเบราว์เซอร์เครื่องนี้ · แก้ไขล่าสุด ${esc(report.updatedAt)} · ฉบับ ${report.version}</footer></article>`;
   }
-  async function downloadProjectReportImage() {
+  async function downloadProjectReportImage(options = {}) {
+    const source=options.source||document.querySelector('.project-monthly-report-sheet')||document.querySelector('.report-sheet.print-target');
+    if(!source)return notice('ไม่พบหน้ารายงานตัวอย่าง กรุณาเปิดรายงานก่อนดาวน์โหลด');
+    const original={width:source.style.width,maxWidth:source.style.maxWidth,margin:source.style.margin};
+    source.classList.add('export-layout');
+    source.style.width='281mm';source.style.maxWidth='none';source.style.margin='0 auto';
+    try {
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      if(document.fonts?.ready)await document.fonts.ready;
+      return await buildProjectReportImage({...options,source});
+    } finally {
+      source.style.width=original.width;source.style.maxWidth=original.maxWidth;source.style.margin=original.margin;
+      source.classList.remove('export-layout');
+    }
+  }
+
+  async function buildProjectReportImage(options = {}) {
     const report = selectedOutputReport();
     const project = db.projects.find(item => item.id === report?.projectId);
-    if (!report || !project) return notice('ไม่พบรายงานสำหรับสร้างไฟล์รูปภาพ');
-    const source = document.querySelector('.project-monthly-report-sheet') || document.querySelector('.report-sheet.print-target');
+    if (!options.source && (!report || !project)) return notice('ไม่พบรายงานสำหรับสร้างไฟล์รูปภาพ');
+    const source = options.source || document.querySelector('.project-monthly-report-sheet') || document.querySelector('.report-sheet.print-target');
     if (!source) return notice('ไม่พบหน้ารายงานตัวอย่าง กรุณาเปิดรายงานก่อนดาวน์โหลด');
     await ensureReportImagesReady(source);
 
@@ -1227,8 +1273,37 @@
       if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return '';
       const box = relativeRect(node);
       if (node instanceof SVGElement) {
+        // The chart relies on stylesheet classes (for example fill:none and
+        // stroke colors). Those styles are not available in the standalone SVG
+        // image used by the PNG renderer, so inline the rendered SVG styles.
+        const clone = node.cloneNode(true);
+        const svgPaintProperties = [
+          'color', 'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width',
+          'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap',
+          'stroke-linejoin', 'stroke-miterlimit', 'opacity', 'font-family',
+          'font-size', 'font-weight', 'font-style', 'text-anchor', 'dominant-baseline',
+          'letter-spacing', 'paint-order', 'vector-effect', 'clip-path', 'mask',
+          'marker-start', 'marker-mid', 'marker-end', 'visibility'
+        ];
+        const originalElements = [node, ...node.querySelectorAll('*')];
+        const clonedElements = [clone, ...clone.querySelectorAll('*')];
+        originalElements.forEach((element, index) => {
+          const computed = getComputedStyle(element);
+          const target = clonedElements[index];
+          for (const property of svgPaintProperties) {
+            const value = computed.getPropertyValue(property);
+            if (value) target.style.setProperty(property, value);
+          }
+        });
         const viewBox = node.getAttribute('viewBox') || `0 0 ${box.width} ${box.height}`;
-        return `<svg x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" viewBox="${escXml(viewBox)}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${node.innerHTML}</svg>`;
+        clone.setAttribute('x', box.x);
+        clone.setAttribute('y', box.y);
+        clone.setAttribute('width', box.width);
+        clone.setAttribute('height', box.height);
+        clone.setAttribute('viewBox', viewBox);
+        clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        return new XMLSerializer().serializeToString(clone);
       }
       if (node.tagName === 'IMG') {
         const href = imageData.get(node);
@@ -1239,11 +1314,18 @@
       }
       let output = '';
       const background = style.backgroundColor;
-      const borderWidth = parseFloat(style.borderTopWidth) || 0;
-      const borderColor = style.borderTopColor || 'transparent';
+      const borderWidths = ['Top','Right','Bottom','Left'].map(side => parseFloat(style[`border${side}Width`]) || 0);
+      const borderColors = ['Top','Right','Bottom','Left'].map(side => style[`border${side}Color`] || 'transparent');
       const radius = parseFloat(style.borderTopLeftRadius) || 0;
-      if (!transparent(background) || borderWidth > 0) {
-        output += `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" rx="${radius}" fill="${transparent(background) ? 'none' : escXml(background)}"${borderWidth > 0 && style.borderTopStyle !== 'none' ? ` stroke="${escXml(borderColor)}" stroke-width="${borderWidth}"` : ''}/>`;
+      if (!transparent(background)) {
+        output += `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" rx="${radius}" fill="${escXml(background)}"/>`;
+      }
+      if (style.borderTopStyle !== 'none') {
+        const [top,right,bottom,left]=borderWidths, [topColor,rightColor,bottomColor,leftColor]=borderColors;
+        if(top) output += `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${top}" fill="${escXml(topColor)}"/>`;
+        if(right) output += `<rect x="${box.x+box.width-right}" y="${box.y}" width="${right}" height="${box.height}" fill="${escXml(rightColor)}"/>`;
+        if(bottom) output += `<rect x="${box.x}" y="${box.y+box.height-bottom}" width="${box.width}" height="${bottom}" fill="${escXml(bottomColor)}"/>`;
+        if(left) output += `<rect x="${box.x}" y="${box.y}" width="${left}" height="${box.height}" fill="${escXml(leftColor)}"/>`;
       }
       for (const child of node.childNodes) output += renderNode(child, node);
       return output;
@@ -1255,25 +1337,25 @@
       image.src = svgUrl;
       await image.decode();
       const canvas = document.createElement('canvas');
-      canvas.width = 1600;
-      canvas.height = 2263;
+      canvas.width = 2263;
+      canvas.height = 1600;
       const context = canvas.getContext('2d');
       context.fillStyle = '#fff';
       context.fillRect(0, 0, canvas.width, canvas.height);
-      const padding = 74;
+      const padding = 61;
       const scale = Math.min((canvas.width - padding * 2) / captureWidth, (canvas.height - padding * 2) / captureHeight);
       const drawWidth = captureWidth * scale;
       const drawHeight = captureHeight * scale;
-      context.drawImage(image, (canvas.width - drawWidth) / 2, padding, drawWidth, drawHeight);
+      context.drawImage(image, (canvas.width - drawWidth) / 2, (canvas.height - drawHeight) / 2, drawWidth, drawHeight);
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error('ไม่สามารถสร้างภาพได้');
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `${project.name.replace(/[\\/:*?"<>|]/g, '-').slice(0, 60)}-${report.month}-รายงาน.png`;
+      anchor.download = options.filename || `${project.name.replace(/[\\/:*?"<>|]/g, '-').slice(0, 60)}-${report.month}-รายงาน.png`;
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 30000);
-      notice('ดาวน์โหลดรายงาน PNG จากหน้าตัวอย่างแล้ว');
+      notice(options.successMessage || 'ดาวน์โหลดรายงาน PNG จากหน้าตัวอย่างแล้ว');
     } finally {
       URL.revokeObjectURL(svgUrl);
     }
@@ -1537,9 +1619,25 @@
       db=empty();adminPanels={};localStorage.removeItem(KEY);localStorage.removeItem(ADMIN_PANELS_KEY);await fileAction('clear').catch(()=>{});ui={page:'home',year:2569,projectId:'',month:'',reportId:'',editDept:'',editProject:'',editDoc:'',replaceFileId:''};render();return notice('ล้างข้อมูลทดลองทั้งหมดแล้ว');
     }
     if (node.hasAttribute('data-save-image')) {const storedDb=db;if(ui.previewReport)db=dashboardPreviewDatabase(ui.year);try{return await downloadProjectReportImage().catch(error=>notice(`สร้างไฟล์รูปไม่สำเร็จ: ${error.message || 'กรุณาลองใหม่'}`));}finally{db=storedDb;}}
-    if (node.hasAttribute('data-print')) {const sheet=document.querySelector('.project-monthly-report-sheet')||document.querySelector('.report-sheet.print-target');if(sheet)await ensureReportImagesReady(sheet);document.body.classList.add('print-report');window.print();}
+    if (node.hasAttribute('data-print')) {
+      const sheet=document.querySelector('.project-monthly-report-sheet')||document.querySelector('.report-sheet.print-target');
+      if(sheet)await ensureReportImagesReady(sheet);
+      document.body.classList.add('print-report');
+      if(sheet){
+        const original={width:sheet.style.width,maxWidth:sheet.style.maxWidth,margin:sheet.style.margin,zoom:sheet.style.zoom};
+        sheet.dataset.printOriginal=JSON.stringify(original);
+        sheet.style.width='281mm';sheet.style.maxWidth='none';sheet.style.margin='0 auto';sheet.style.zoom='1';
+        sheet.classList.add('export-layout');
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        const printableWidth=281/25.4*96,printableHeight=194/25.4*96;
+        const bounds=sheet.getBoundingClientRect();
+        const scale=Math.min(1,printableWidth/Math.max(1,bounds.width),printableHeight/Math.max(1,sheet.scrollHeight));
+        sheet.style.zoom=String(scale);
+      }
+      window.print();
+    }
   });
-  window.addEventListener('afterprint',()=>document.body.classList.remove('print-report','print-dashboard-report','print-project-monthly-report'));
+  window.addEventListener('afterprint',()=>{document.body.classList.remove('print-report','print-dashboard-report','print-project-monthly-report');const sheet=document.querySelector('.project-monthly-report-sheet')||document.querySelector('.report-sheet.print-target');if(sheet){sheet.classList.remove('export-layout');try{const original=JSON.parse(sheet.dataset.printOriginal||'{}');for(const key of ['width','maxWidth','margin','zoom'])sheet.style[key]=original[key]||'';}catch{sheet.style.removeProperty('zoom');}delete sheet.dataset.printOriginal;}});
 
   document.addEventListener('change', async event => {
     const input=event.target;

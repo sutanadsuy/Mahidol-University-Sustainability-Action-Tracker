@@ -1337,13 +1337,17 @@
       image.src = svgUrl;
       await image.decode();
       const canvas = document.createElement('canvas');
-      canvas.width = 2263;
-      canvas.height = 1600;
+      // Keep the exported PNG in the same proportion as the on-screen report.
+      // The previous fixed A4 canvas added large white bands around shorter reports.
+      const exportScale = 2;
+      const exportPadding = 24 * exportScale;
+      canvas.width = Math.max(1, Math.ceil(captureWidth * exportScale + exportPadding * 2));
+      canvas.height = Math.max(1, Math.ceil(captureHeight * exportScale + exportPadding * 2));
       const context = canvas.getContext('2d');
       context.fillStyle = '#fff';
       context.fillRect(0, 0, canvas.width, canvas.height);
-      const padding = 61;
-      const scale = Math.min((canvas.width - padding * 2) / captureWidth, (canvas.height - padding * 2) / captureHeight);
+      const padding = exportPadding;
+      const scale = exportScale;
       const drawWidth = captureWidth * scale;
       const drawHeight = captureHeight * scale;
       context.drawImage(image, (canvas.width - drawWidth) / 2, (canvas.height - drawHeight) / 2, drawWidth, drawHeight);
@@ -1626,13 +1630,9 @@
       if(sheet){
         const original={width:sheet.style.width,maxWidth:sheet.style.maxWidth,margin:sheet.style.margin,zoom:sheet.style.zoom};
         sheet.dataset.printOriginal=JSON.stringify(original);
-        sheet.style.width='281mm';sheet.style.maxWidth='none';sheet.style.margin='0 auto';sheet.style.zoom='1';
+        sheet.style.width='100%';sheet.style.maxWidth='none';sheet.style.margin='0';sheet.style.zoom='1';
         sheet.classList.add('export-layout');
         await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-        const printableWidth=281/25.4*96,printableHeight=194/25.4*96;
-        const bounds=sheet.getBoundingClientRect();
-        const scale=Math.min(1,printableWidth/Math.max(1,bounds.width),printableHeight/Math.max(1,sheet.scrollHeight));
-        sheet.style.zoom=String(scale);
       }
       window.print();
     }

@@ -554,6 +554,17 @@
   gap:0 9px!important;
 }
 
+/* Print the same report composition that is visible on screen, edge to edge. */
+@media print{
+  @page{size:A4 landscape;margin:0}
+  html,body{width:100%!important;min-width:0!important;background:#fff!important}
+  body.print-report .main-area{width:100%!important;min-width:0!important}
+  body.print-report .project-monthly-report-sheet.export-layout{
+    width:100%!important;max-width:none!important;margin:0!important;padding:8mm!important;
+    box-sizing:border-box!important;border:0!important;border-radius:0!important;box-shadow:none!important;
+  }
+}
+
 /* Final preview alignment: the chart is slightly narrower, while the
    information column gets enough room for the original wording. */
 .project-monthly-report-sheet:not(.export-layout) .project-report-main-grid{

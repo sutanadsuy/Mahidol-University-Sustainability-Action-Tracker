@@ -28,6 +28,7 @@ function getStepWeights() {
 
 function updateStepWeights(payload) {
   requireAdminAccess_();
+  const previousWeights = getStepWeights();
   const steps = Object.keys(DEFAULT_STEP_WEIGHTS);
   const values = {};
   steps.forEach(step => {
@@ -66,7 +67,13 @@ function updateStepWeights(payload) {
       sheet.appendRow([step, values[step], now]);
     }
   });
+  appendAdminChange_('weights', 'current', 'UPDATE', previousWeights, getStepWeights());
   return { success: true, message: 'บันทึกค่าน้ำหนักขั้นตอนใหม่สำเร็จ' };
+}
+
+function resetStepWeightsToDefaults() {
+  requireAdminAccess_();
+  return updateStepWeights({ draft: 5, approval: 5, execute: 75, disburse: 5, report: 10 });
 }
 
 function setMasterBudget(fiscalYear, totalBudget) {
@@ -74,17 +81,25 @@ function setMasterBudget(fiscalYear, totalBudget) {
   const year = String(fiscalYear || '').trim();
   const budget = Number(totalBudget);
   if (!year || !Number.isFinite(budget) || budget < 0) throw new Error('ปีงบประมาณหรือวงเงินไม่ถูกต้อง');
-  const sheet = getOrCreateSheet_('Master_Budgets', ['Fiscal_Year', 'Total_Budget_THB', 'Updated_At']);
+  const sheet = getOrCreateSheet_('Master_Budgets', ['Fiscal_Year', 'Total_Budget_THB', 'Updated_At', 'Status']);
   const rows = sheet.getDataRange().getValues();
   let rowNumber = -1;
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]).trim() === year) { rowNumber = i + 1; break; }
   }
   if (rowNumber > 0) {
+    const before = adminRowSnapshot_(rows[rowNumber - 1]);
+    ensureAdminColumn_(sheet, 4, 'Status');
     sheet.getRange(rowNumber, 2).setValue(budget);
     if (sheet.getLastColumn() >= 3) sheet.getRange(rowNumber, 3).setValue(new Date());
+    sheet.getRange(rowNumber, 4).setValue('Active');
+    appendAdminChange_('budget', year, 'UPDATE', before,
+      adminRowSnapshot_(sheet.getRange(rowNumber, 1, 1, Math.max(4, sheet.getLastColumn())).getValues()[0]));
   } else {
-    sheet.appendRow([year, budget, new Date()]);
+    ensureAdminColumn_(sheet, 4, 'Status');
+    sheet.appendRow([year, budget, new Date(), 'Active']);
+    appendAdminChange_('budget', year, 'CREATE', null,
+      adminRowSnapshot_(sheet.getRange(sheet.getLastRow(), 1, 1, 4).getValues()[0]));
   }
   return { success: true, message: 'บันทึกงบประมาณรวมปี ' + year + ' เรียบร้อยแล้ว' };
 }
@@ -94,7 +109,7 @@ function addDepartment(payload) {
   const name = String(payload.deptName || '').trim();
   if (!name) throw new Error('กรุณาระบุชื่อหน่วยงาน');
   const requestedId = String(payload.deptId || '').trim();
-  const sheet = getOrCreateSheet_('Master_Departments', ['Department_ID', 'Department_Name', 'Head_Name', 'Head_Email']);
+  const sheet = getOrCreateSheet_('Master_Departments', ['Dept_ID', 'Department_Name', 'Head_Name', 'Head_Email', 'Created_At', 'Status']);
   const rows = sheet.getDataRange().getValues();
   let rowNumber = -1;
   for (let i = 1; i < rows.length; i++) {
@@ -106,10 +121,19 @@ function addDepartment(payload) {
     }
   }
   if (rowNumber > 0) {
+    const before = adminRowSnapshot_(rows[rowNumber - 1]);
+    ensureAdminColumn_(sheet, 6, 'Status');
     sheet.getRange(rowNumber, 2, 1, 3).setValues([[name, payload.headName || '', payload.headEmail || '']]);
+    sheet.getRange(rowNumber, 6).setValue('Active');
+    appendAdminChange_('department', String(rows[rowNumber - 1][0]), 'UPDATE', before,
+      adminRowSnapshot_(sheet.getRange(rowNumber, 1, 1, Math.max(6, sheet.getLastColumn())).getValues()[0]));
     return { success: true, message: 'อัปเดตข้อมูลหน่วยงานเรียบร้อยแล้ว' };
   }
-  sheet.appendRow([requestedId || 'DEP-' + Utilities.getUuid().substring(0, 6), name, payload.headName || '', payload.headEmail || '']);
+  const newId = requestedId || 'DEP-' + Utilities.getUuid().substring(0, 6);
+  ensureAdminColumn_(sheet, 6, 'Status');
+  sheet.appendRow([newId, name, payload.headName || '', payload.headEmail || '', new Date(), 'Active']);
+  appendAdminChange_('department', newId, 'CREATE', null,
+    adminRowSnapshot_(sheet.getRange(sheet.getLastRow(), 1, 1, 6).getValues()[0]));
   return { success: true, message: 'เพิ่มหน่วยงานเรียบร้อยแล้ว' };
 }
 
@@ -159,7 +183,7 @@ function getInitialBootstrapData(fiscalYear) {
   if (deptSheet) {
     const deptRows = deptSheet.getDataRange().getValues();
     for (let i = 1; i < deptRows.length; i++) {
-      if (deptRows[i][1]) {
+      if (deptRows[i][1] && String(deptRows[i][5] || '').trim().toLowerCase() !== 'archived') {
         departments.push({
           id: String(deptRows[i][0] || '').trim(),
           name: String(deptRows[i][1]).trim(),
@@ -173,7 +197,7 @@ function getInitialBootstrapData(fiscalYear) {
   let totalMasterBudget = 0;
   if (bgtSheet) {
     const bgtData = bgtSheet.getDataRange().getValues().slice(1);
-    const found = bgtData.find(r => String(r[0]).trim() === targetYear);
+    const found = bgtData.find(r => String(r[0]).trim() === targetYear && String(r[3] || '').trim().toLowerCase() !== 'archived');
     if (found) totalMasterBudget = Number(found[1]) || 0;
   }
 
@@ -208,6 +232,7 @@ function addNewMasterItem(payload) {
 
   const targetId = String(payload.id).trim();
   const targetYear = String(payload.fiscalYear).trim();
+  if (!targetId || !targetYear) throw new Error('กรุณาระบุรหัสโครงการและปีงบประมาณ');
   const data = sheet.getDataRange().getValues();
   let foundRow = -1;
 
@@ -219,6 +244,7 @@ function addNewMasterItem(payload) {
   }
 
   if (foundRow > 0) {
+    const before = adminRowSnapshot_(data[foundRow - 1]);
     // โหมดแก้ไข: อัปเดตข้อมูลทับแถวเดิม โดยคงค่า Strategy, Start_Date, End_Date, Status เดิมไว้
     sheet.getRange(foundRow, 3).setValue(payload.name);
     sheet.getRange(foundRow, 5).setValue(payload.responsible);
@@ -230,6 +256,8 @@ function addNewMasterItem(payload) {
     sheet.getRange(foundRow, 14).setValue(payload.coEmail1 || '');
     sheet.getRange(foundRow, 15).setValue(payload.coName2 || '');
     sheet.getRange(foundRow, 16).setValue(payload.coEmail2 || '');
+    appendAdminChange_('project', targetYear + '/' + targetId, 'UPDATE', before,
+      adminRowSnapshot_(sheet.getRange(foundRow, 1, 1, sheet.getLastColumn()).getValues()[0]));
     return { success: true, message: `อัปเดตข้อมูลโครงการ ${targetId} สำเร็จเรียบร้อยแล้ว` };
   } else {
     // โหมดเพิ่มใหม่
@@ -239,6 +267,8 @@ function addNewMasterItem(payload) {
       '', '', 'Active',
       payload.primaryEmail, payload.coName1 || '', payload.coEmail1 || '', payload.coName2 || '', payload.coEmail2 || ''
     ]);
+    appendAdminChange_('project', targetYear + '/' + targetId, 'CREATE', null,
+      adminRowSnapshot_(sheet.getRange(sheet.getLastRow(), 1, 1, sheet.getLastColumn()).getValues()[0]));
     return { success: true, message: `เพิ่มโครงการ ${targetId} เข้าสู่ฐานข้อมูลสำเร็จ` };
   }
 }
@@ -928,7 +958,8 @@ function getDashboardReport(fiscalYear, dept, refId, asOfMonthKey) {
 
   let masterTotalBudget = 0;
   if (bgtSheet) {
-    const bRow = bgtSheet.getDataRange().getValues().slice(1).find(r => String(r[0]).trim() === targetFY);
+    const bRow = bgtSheet.getDataRange().getValues().slice(1).find(r =>
+      String(r[0]).trim() === targetFY && String(r[3] || '').trim().toLowerCase() !== 'archived');
     if (bRow) masterTotalBudget = Number(bRow[1]) || 0;
   }
 
@@ -1493,6 +1524,9 @@ function uploadMasterBudgetDoc(payload, fileObj) {
     priorityVal
   ]);
 
+  appendAdminChange_('document', docId, 'CREATE', null,
+    adminRowSnapshot_(sheet.getRange(sheet.getLastRow(), 1, 1, sheet.getLastColumn()).getValues()[0]));
+
   return { success: true, message: 'อัปโหลดและบันทึกเอกสารโครงการใหญ่สำเร็จ' };
 }
 
@@ -1524,7 +1558,7 @@ function getMasterBudgetDocs(fiscalYear) {
         fileName: String(r[4] || '').trim(),
         url: String(r[5] || '').trim(),
         isLatest: true,
-        uploadedAt: String(r[7] || '-'),
+        uploadedAt: r[7] instanceof Date ? Utilities.formatDate(r[7], Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') : String(r[7] || '-'),
         uploadedBy: String(r[8] || '').trim(),
         priority: Number(r[9]) || 99
       });
@@ -1565,9 +1599,10 @@ function getAllMasterBudgetDocsForAdmin(fiscalYear) {
           fileName: String(r[4] || '').trim(),
           url: String(r[5] || '').trim(),
           isLatest: isLatest,
-          uploadedAt: String(r[7] || '-'),
+          uploadedAt: r[7] instanceof Date ? Utilities.formatDate(r[7], Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') : String(r[7] || '-'),
           uploadedBy: String(r[8] || '').trim(),
-          priority: Number(r[9]) || (i)
+          priority: Number(r[9]) || (i),
+          replacesDocId: String(r[10] || '').trim()
         });
       }
     }
@@ -1596,12 +1631,67 @@ function updateMasterBudgetDocStatus(docId, isActive, priorityVal) {
   }
 
   if (foundRow > 0) {
+    const before = adminRowSnapshot_(data[foundRow - 1]);
     sheet.getRange(foundRow, 7).setValue(isActive ? 'Yes' : 'No'); // บันทึกเป็น Yes / No ตามโครงสร้างเดิมของชีท
     if (priorityVal !== undefined && priorityVal !== null) {
       sheet.getRange(foundRow, 10).setValue(Number(priorityVal) || 1);
     }
+    const wasActive = ['yes', 'true', 'active'].includes(String(data[foundRow - 1][6] || '').trim().toLowerCase());
+    const action = wasActive === isActive ? 'UPDATE' : isActive ? 'RESTORE' : 'ARCHIVE';
+    appendAdminChange_('document', String(docId), action, before,
+      adminRowSnapshot_(sheet.getRange(foundRow, 1, 1, sheet.getLastColumn()).getValues()[0]));
     return { success: true, message: 'อัปเดตสถานะและลำดับเอกสารเรียบร้อยแล้ว' };
   }
 
   return { success: false, message: 'ไม่พบรหัสเอกสารที่ระบุ' };
+}
+
+function updateMasterBudgetDocMetadata(docId, payload) {
+  requireAdminAccess_();
+  const sheet = getMasterBudgetDocSheet_();
+  if (!sheet) throw new Error('ไม่พบตารางเอกสาร');
+  const data = sheet.getDataRange().getValues();
+  const category = String(payload.category || '').trim();
+  const name = String(payload.docName || '').trim();
+  const priority = Number(payload.priority);
+  if (!category || !name || !Number.isFinite(priority) || priority < 1) throw new Error('ข้อมูลเอกสารไม่ครบ');
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() !== String(docId).trim()) continue;
+    const before = adminRowSnapshot_(data[i]);
+    sheet.getRange(i + 1, 3, 1, 2).setValues([[category, name]]);
+    sheet.getRange(i + 1, 10).setValue(priority);
+    appendAdminChange_('document', String(docId), 'UPDATE', before,
+      adminRowSnapshot_(sheet.getRange(i + 1, 1, 1, sheet.getLastColumn()).getValues()[0]));
+    return { success: true, message: 'แก้ไขรายละเอียดเอกสารแล้ว' };
+  }
+  throw new Error('ไม่พบเอกสารที่เลือก');
+}
+
+function replaceMasterBudgetDoc(docId, fileObj) {
+  requireAdminAccess_();
+  if (!fileObj || !fileObj.base64 || !fileObj.name) throw new Error('กรุณาเลือกไฟล์ทดแทน');
+  const sheet = getMasterBudgetDocSheet_();
+  if (!sheet) throw new Error('ไม่พบตารางเอกสาร');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() !== String(docId).trim()) continue;
+    const before = adminRowSnapshot_(data[i]);
+    const decoded = Utilities.base64Decode(String(fileObj.base64).split(',')[1]);
+    const blob = Utilities.newBlob(decoded, fileObj.mimeType, fileObj.name);
+    const file = getOrCreateFolder_('MU_Sustainability_Master_Docs').createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const newId = 'MDOC-' + Utilities.getUuid().substring(0, 8);
+    const wasActive = ['yes', 'true', 'active'].includes(String(data[i][6] || '').trim().toLowerCase());
+    sheet.getRange(i + 1, 7).setValue('No');
+    if (sheet.getRange(1, 11).getValue() === '') sheet.getRange(1, 11).setValue('Replaces_Doc_ID');
+    sheet.appendRow([
+      newId, data[i][1], data[i][2], data[i][3], fileObj.name, file.getUrl(), wasActive ? 'Yes' : 'No',
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy, HH:mm:ss'),
+      Session.getActiveUser().getEmail() || '', Number(data[i][9]) || 1, String(docId)
+    ]);
+    appendAdminChange_('document', String(docId), 'REPLACE', before,
+      adminRowSnapshot_(sheet.getRange(sheet.getLastRow(), 1, 1, 11).getValues()[0]));
+    return { success: true, message: 'แทนที่ไฟล์แล้ว ไฟล์เดิมยังอยู่ในประวัติ', newDocId: newId };
+  }
+  throw new Error('ไม่พบเอกสารที่เลือก');
 }

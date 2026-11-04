@@ -13,6 +13,14 @@ function getOrCreateSheet_(sheetName, headers) {
 }
 
 function getOrCreateFolder_(folderName) {
+  const managedFolders = {
+    'MU_Sustainability_Attachments': '1BWBtxHy_r5TZmEA544ck_Upp4xUuCpw4',
+    'MU_Sustainability_Activity_Files': '1BWBtxHy_r5TZmEA544ck_Upp4xUuCpw4',
+    'MU_Sustainability_Master_Docs': '1oNmi5z7hIybwl4NjURZrrXJpnSYR7AWA'
+  };
+  if (managedFolders[folderName]) {
+    try { return DriveApp.getFolderById(managedFolders[folderName]); } catch (err) {}
+  }
   const folders = DriveApp.getFoldersByName(folderName);
   return folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
 }

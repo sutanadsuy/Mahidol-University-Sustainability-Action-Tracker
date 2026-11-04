@@ -1,6 +1,6 @@
 # Mahidol University Sustainability Action Tracker
 
-โค้ดใน `apps-script/` คือเว็บแอป Google Apps Script ที่เชื่อมกับ Google Sheet รหัส `1qB4mxGo4OOR2UuTOw5AJ0mbbHLEGaOgZX8Nal9g0LJk` โดยตรง รวมทั้งหน้าดูรายงานและหน้าบันทึกข้อมูล
+โค้ดใน `apps-script/` คือเว็บแอป Google Apps Script ที่เชื่อมกับ Google Sheet ใหม่รหัส `1-fKl4-_MmqqHcWufQsRfA2Zv9fMIDgLoREVjdb2wDAQ` โดยตรง รวมทั้งหน้าดูรายงานและหน้าบันทึกข้อมูล
 
 เว็บแอปที่ใช้งานจริง: <https://script.google.com/a/macros/mahidol.ac.th/s/AKfycbwktgmYgRjStHCH6QBz4m-SU6q9sTuk4Up6lZEJBPX1Lc-lCXrhzUvs_jnjAFdtNESfkA/exec> (deployment เวอร์ชัน 3, 20 ต.ค. 2026) ส่วน URL ที่ขึ้นต้น `AKfycbzN5DwkM8fZ_` เป็น deployment เก่าที่ไม่ใช้งานแล้ว
 
